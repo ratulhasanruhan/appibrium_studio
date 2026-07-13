@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Eye, EyeOff, ArrowRight, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { account } from "@/lib/appwrite/client";
@@ -11,6 +11,18 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    // If a session already exists, skip login page
+    account
+      .get()
+      .then(() => {
+        window.location.href = "/dashboard";
+      })
+      .catch(() => {
+        // No active session, stay on login page
+      });
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
