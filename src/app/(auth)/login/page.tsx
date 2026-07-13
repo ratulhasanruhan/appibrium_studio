@@ -17,6 +17,13 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
     try {
+      // Clear any conflicting active session first
+      try {
+        await account.deleteSession("current");
+      } catch (_) {
+        // No active session existed
+      }
+      
       // Create session in Appwrite
       await account.createEmailPasswordSession(email, password);
       // Force redirect
