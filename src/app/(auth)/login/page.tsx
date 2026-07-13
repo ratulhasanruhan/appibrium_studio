@@ -57,14 +57,14 @@ export default function LoginPage() {
           <img
             src="/branding_assets/logos/lockup/lockup_w4_light.svg"
             alt="Appibrium"
-            style={{ height: 22, width: "auto" }}
+            style={{ height: 32, width: "auto" }}
           />
-          <div style={{ width: 1, height: 16, background: "var(--border)" }} />
+          <div style={{ width: 1, height: 22, background: "var(--border)" }} />
           <span
             style={{
               fontFamily: "var(--font-heading)",
               fontWeight: 800,
-              fontSize: 15,
+              fontSize: 20,
               letterSpacing: "0.08em",
               textTransform: "uppercase",
               color: "var(--accent)",

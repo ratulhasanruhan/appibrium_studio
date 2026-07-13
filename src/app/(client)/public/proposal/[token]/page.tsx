@@ -136,10 +136,10 @@ export default function PublicProposalPortal() {
             <img
               src="/branding_assets/logos/lockup/lockup_w4_light.svg"
               alt="Appibrium"
-              style={{ height: 18, width: "auto" }}
+              style={{ height: 24, width: "auto" }}
             />
-            <div style={{ width: 1, height: 12, background: "var(--border)" }} />
-            <span className="studio-mark" style={{ fontWeight: 800, textTransform: "uppercase", fontSize: 12, letterSpacing: "0.08em", color: "var(--accent)" }}>
+            <div style={{ width: 1, height: 16, background: "var(--border)" }} />
+            <span className="studio-mark" style={{ fontWeight: 800, textTransform: "uppercase", fontSize: 14, letterSpacing: "0.08em", color: "var(--accent)" }}>
               Studio
             </span>
           </div>
@@ -193,6 +193,17 @@ export default function PublicProposalPortal() {
           </div>
         </div>
 
+        {/* PDF Watermark & Print Headers (hidden in screen, shown in print) */}
+        <div className="pdf-watermark">APPIBRIUM</div>
+        <div className="pdf-header">
+          <span>APPIBRIUM TECHNOLOGY CO.</span>
+          <span>PROPOSAL: PROP-{proposal.$id.toUpperCase()}</span>
+        </div>
+        <div className="pdf-footer">
+          <span>Confidential Business Document</span>
+          <span>Page 1 of 1</span>
+        </div>
+
         {/* Document Body */}
         <div className="card" style={{ padding: "40px", minHeight: 600 }}>
           <div style={{ borderBottom: "2px solid var(--accent)", paddingBottom: 20, marginBottom: 30, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
@@ -226,6 +237,81 @@ export default function PublicProposalPortal() {
         .proposal-content ul { margin-bottom: 14px; padding-left: 20px; }
         .proposal-content li { margin-bottom: 6px; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        .pdf-watermark { display: none; }
+        .pdf-header { display: none; }
+        .pdf-footer { display: none; }
+
+        @media print {
+          @page {
+            size: A4;
+            margin: 20mm 15mm 20mm 15mm;
+          }
+          body {
+            background: #ffffff !important;
+            color: #000000 !important;
+            padding-top: 30px;
+            padding-bottom: 30px;
+          }
+          .card {
+            border: none !important;
+            box-shadow: none !important;
+            background: none !important;
+            padding: 0 !important;
+          }
+          .pdf-watermark {
+            display: block !important;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 80px;
+            color: rgba(0, 184, 114, 0.06) !important;
+            font-weight: 900;
+            font-family: 'Jost', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 0.25em;
+            pointer-events: none;
+            z-index: -1000;
+            white-space: nowrap;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          .pdf-header {
+            display: flex !important;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 30px;
+            border-bottom: 1px solid rgba(0, 184, 114, 0.15);
+            align-items: center;
+            justify-content: space-between;
+            font-size: 8px;
+            color: #777777;
+            font-family: 'Jost', sans-serif;
+            letter-spacing: 0.1em;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          .pdf-footer {
+            display: flex !important;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 30px;
+            border-top: 1px solid rgba(0, 184, 114, 0.15);
+            align-items: center;
+            justify-content: space-between;
+            font-size: 8px;
+            color: #777777;
+            font-family: 'Jost', sans-serif;
+            letter-spacing: 0.1em;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+        }
       `}</style>
     </div>
   );

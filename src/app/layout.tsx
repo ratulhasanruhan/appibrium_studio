@@ -12,6 +12,9 @@ export const metadata: Metadata = {
   authors: [{ name: "Appibrium Technology Co.", url: "https://appibrium.com" }],
   creator: "Appibrium Technology Co.",
   metadataBase: new URL("https://studio.appibrium.com"),
+  icons: {
+    icon: "/branding_assets/logos/icon/icon_night.svg",
+  },
   openGraph: {
     title: "Appibrium Studio",
     description: "Internal business operating system for Appibrium.",

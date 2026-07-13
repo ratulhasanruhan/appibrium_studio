@@ -11,7 +11,7 @@
 
 const fs = require("fs");
 const path = require("path");
-const { Client, Databases, Storage } = require("node-appwrite");
+const { Client, Databases, Storage, Permission, Role } = require("node-appwrite");
 
 // Helper: load environment variables manually from .env.local
 function loadEnv() {
@@ -225,12 +225,19 @@ async function run() {
   // 2. Create Collections & Attributes
   for (const [collId, attrs] of Object.entries(SCHEMA)) {
     console.log(`\n📦 Checking Collection "${collId}"...`);
+    const permissions = [
+      Permission.read(Role.any()),
+      Permission.create(Role.any()),
+      Permission.update(Role.any()),
+      Permission.delete(Role.any())
+    ];
     try {
       await databases.getCollection(dbId, collId);
-      console.log(`Collection "${collId}" already exists.`);
+      console.log(`Collection "${collId}" already exists. Updating permissions...`);
+      await databases.updateCollection(dbId, collId, collId, permissions);
     } catch (error) {
       console.log(`Creating collection "${collId}"...`);
-      await databases.createCollection(dbId, collId, collId);
+      await databases.createCollection(dbId, collId, collId, permissions);
       console.log(`Collection "${collId}" created successfully.`);
     }
 

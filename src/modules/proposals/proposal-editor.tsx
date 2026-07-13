@@ -37,6 +37,13 @@ export function ProposalEditor({ id }: ProposalEditorProps) {
   const [smsSending, setSmsSending] = useState(false);
   const [smsStatus, setSmsStatus] = useState("");
 
+  // Template Generator state
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [projDesc, setProjDesc] = useState("");
+  const [projTech, setProjTech] = useState("");
+  const [projDuration, setProjDuration] = useState("");
+  const [projAmount, setProjAmount] = useState("");
+
   async function handleAiGenerate() {
     if (!aiPrompt) return;
     setAiGenerating(true);
@@ -60,6 +67,88 @@ export function ProposalEditor({ id }: ProposalEditorProps) {
       setAiGenerating(false);
       setAiPrompt("");
     }
+  }
+
+  function handleGenerateTemplate(type: "web" | "app") {
+    if (!projDesc || !projTech || !projDuration || !projAmount) {
+      alert("Please fill in all template fields: Description, Technologies, Duration, and Amount.");
+      return;
+    }
+
+    const titlePrefix = type === "web" ? "Web Application Development" : "Mobile App Development";
+    if (!title) {
+      setTitle(`${titlePrefix} Proposal`);
+    }
+
+    const htmlContent = type === "web" ? `
+<h2>1. Executive Summary</h2>
+<p>${projDesc}. By leveraging modern software engineering practices, we will deliver a scalable, secure, and visually stunning web application tailored specifically to your organizational workflows.</p>
+
+<h2>2. Core Technical Architecture</h2>
+<p>The platform will be engineered using state-of-the-art web technologies chosen for peak performance, security, and developer velocity:</p>
+<ul>
+  <li><strong>Frontend & Client Interface</strong>: Built with <strong>${projTech}</strong> to achieve seamless page transitions, fast loading speeds, and responsive behaviors.</li>
+  <li><strong>Backend Services</strong>: Appwrite Cloud powers the secure database collection schema, file storage bucket, and user session authentication.</li>
+</ul>
+
+<h2>3. Project Scope & Key Deliverables</h2>
+<ul>
+  <li><strong>Phase 1: Prototype Layout & Database Setup</strong> — Design layout wireframes, synchronize database collections, and establish secure client connections.</li>
+  <li><strong>Phase 2: Business Logic & Portal Pages</strong> — Develop custom workspace interfaces, line-item builders, PDF generation routes, and communication integrations.</li>
+  <li><strong>Phase 3: Security & Verification Testing</strong> — Implement client authorization guards, audit checks, and perform staging deployments.</li>
+</ul>
+
+<h2>4. Timeline & Deliverables</h2>
+<p>The overall project timeline is estimated to span <strong>${projDuration}</strong>. Delivery will be structured into bi-weekly milestones with live previews.</p>
+
+<h2>5. Commercial Terms & Pricing</h2>
+<p>The total investment for the complete software engineering lifecycle is structured as follows:</p>
+<ul>
+  <li><strong>Total Project Budget</strong>: <strong>${projAmount} BDT</strong></li>
+  <li><strong>Payment Schedule</strong>:
+    <ul>
+      <li>40% Advance initiation deposit.</li>
+      <li>40% Mid-milestone prototype delivery.</li>
+      <li>20% Final verification and deployment handover.</li>
+    </ul>
+  </li>
+</ul>
+    ` : `
+<h2>1. Executive Summary</h2>
+<p>${projDesc}. We will build a native-feeling mobile application providing a premium, fluid user interface and highly optimised offline synchronization behaviors.</p>
+
+<h2>2. Mobile Application Architecture</h2>
+<p>The application will be engineered using modern cross-platform patterns for native execution across iOS and Android systems:</p>
+<ul>
+  <li><strong>App Framework</strong>: Built using <strong>${projTech}</strong> for smooth micro-animations and peak native performance.</li>
+  <li><strong>Cloud Sync Backend</strong>: Powered by Appwrite Databases and storage services.</li>
+</ul>
+
+<h2>3. Project Scope & Milestones</h2>
+<ul>
+  <li><strong>Phase 1: UI/UX Wireframing & Appwrite Client Integration</strong> — Custom screen designs, authentication session setup, and collections initialization.</li>
+  <li><strong>Phase 2: Feature Development & Push Notifications</strong> — Interactive client workspace screens, background notifications integration, and payment details integration.</li>
+  <li><strong>Phase 3: App Store Deployment & Handover</strong> — App Store (iOS) and Google Play Store (Android) release preparation.</li>
+</ul>
+
+<h2>4. Timeline & Milestones</h2>
+<p>The project lifecycle will span a duration of <strong>${projDuration}</strong> from initial kickoff to deployment.</p>
+
+<h2>5. Project Budget & Pricing</h2>
+<ul>
+  <li><strong>Total Mobile App Budget</strong>: <strong>${projAmount} BDT</strong></li>
+  <li><strong>Milestone Payments</strong>:
+    <ul>
+      <li>50% Advance initiation deposit.</li>
+      <li>30% Beta release testing preview.</li>
+      <li>20% Store publication and final approval.</li>
+    </ul>
+  </li>
+</ul>
+    `;
+
+    setContentHtml(htmlContent.trim());
+    setShowTemplates(false);
   }
 
   useEffect(() => {
@@ -128,6 +217,95 @@ export function ProposalEditor({ id }: ProposalEditorProps) {
     <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 20 }}>
       {/* ─── Left Panel: Editor ─── */}
       <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        {/* Template Copilot Card */}
+        <div className="card" style={{ border: "1px solid rgba(0, 184, 114, 0.2)", background: "linear-gradient(135deg, #F0FBF5, var(--background-alt))", display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <Sparkles size={16} style={{ color: "var(--accent)" }} />
+              <h3 style={{ fontSize: 13, fontWeight: 600, fontFamily: "var(--font-heading)" }}>⚡ Proposal Template Copilot</h3>
+            </div>
+            <button 
+              className="btn btn-ghost" 
+              style={{ fontSize: 11, padding: "4px 8px", background: "var(--background)", border: "1px solid var(--border)" }} 
+              onClick={() => setShowTemplates(!showTemplates)}
+            >
+              {showTemplates ? "Hide Generator" : "Use Template Generator"}
+            </button>
+          </div>
+
+          {showTemplates && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12, borderTop: "1px dashed var(--border)", paddingTop: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Technologies Used</label>
+                  <input
+                    type="text"
+                    className="input-base"
+                    placeholder="e.g. Next.js, Appwrite, CSS"
+                    value={projTech}
+                    onChange={(e) => setProjTech(e.target.value)}
+                    style={{ fontSize: 12 }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Duration / Timeline</label>
+                  <input
+                    type="text"
+                    className="input-base"
+                    placeholder="e.g. 2 Months"
+                    value={projDuration}
+                    onChange={(e) => setProjDuration(e.target.value)}
+                    style={{ fontSize: 12 }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 12 }}>
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Project Budget Amount (BDT)</label>
+                  <input
+                    type="text"
+                    className="input-base"
+                    placeholder="e.g. 1,50,000"
+                    value={projAmount}
+                    onChange={(e) => setProjAmount(e.target.value)}
+                    style={{ fontSize: 12 }}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 600, marginBottom: 4 }}>Project Description & Goal</label>
+                <textarea
+                  className="input-base"
+                  rows={2}
+                  placeholder="e.g. Design and engineer a custom client workflow CRM platform for Appibrium Studio"
+                  value={projDesc}
+                  onChange={(e) => setProjDesc(e.target.value)}
+                  style={{ fontSize: 12, resize: "none" }}
+                />
+              </div>
+
+              <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                <button 
+                  className="btn btn-primary" 
+                  style={{ flex: 1, justifyContent: "center", fontSize: 12 }} 
+                  onClick={() => handleGenerateTemplate("web")}
+                >
+                  Create Web Application Proposal
+                </button>
+                <button 
+                  className="btn btn-ghost" 
+                  style={{ flex: 1, justifyContent: "center", fontSize: 12, border: "1px solid var(--border)", background: "var(--background)" }} 
+                  onClick={() => handleGenerateTemplate("app")}
+                >
+                  Create Mobile App Proposal
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Editor Settings Card */}
         <div className="card" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <h2 style={{ fontSize: 13, fontWeight: 600, fontFamily: "var(--font-heading)" }}>Proposal Settings</h2>

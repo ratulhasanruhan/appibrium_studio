@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { client } from "@/lib/appwrite/client";
+import { client, account } from "@/lib/appwrite/client";
 import { cn } from "@/utils";
 import {
   LayoutDashboard,
@@ -18,6 +18,7 @@ import {
   Bot,
   Settings,
   ChevronDown,
+  LogOut,
 } from "lucide-react";
 
 interface NavItem {
@@ -62,6 +63,9 @@ function NavLink({ item }: { item: NavItem }) {
 }
 
 export function Sidebar() {
+  const [userName, setUserName] = useState("");
+  const [userLabel, setUserLabel] = useState("");
+
   useEffect(() => {
     // Ping Appwrite server on mount
     if (typeof (client as any).ping === "function") {
@@ -69,7 +73,32 @@ export function Sidebar() {
         console.log(`[Appwrite Connection]: ${ok ? "Connected successfully! ✓" : "Failed to ping server. ✗"}`);
       });
     }
+
+    // Load active profile details
+    account
+      .get()
+      .then((user) => {
+        setUserName(user.name);
+        const labels = (user as any).labels || [];
+        if (labels.length > 0) {
+          setUserLabel(labels[0]);
+        } else {
+          setUserLabel("Owner");
+        }
+      })
+      .catch(() => {});
   }, []);
+
+  async function handleLogout() {
+    if (confirm("Are you sure you want to sign out?")) {
+      try {
+        await account.deleteSession("current");
+        window.location.href = "/login";
+      } catch (err) {
+        console.error("Logout failed:", err);
+      }
+    }
+  }
 
   return (
     <aside className="sidebar">
@@ -80,10 +109,10 @@ export function Sidebar() {
           <img
             src="/branding_assets/logos/lockup/lockup_w4_light.svg"
             alt="Appibrium"
-            style={{ height: 20, width: "auto", objectFit: "contain", flexShrink: 0 }}
+            style={{ height: 28, width: "auto", objectFit: "contain", flexShrink: 0 }}
           />
-          <div style={{ width: 1, height: 14, background: "var(--border)", flexShrink: 0 }} />
-          <span className="studio-mark" style={{ fontWeight: 800, textTransform: "uppercase", fontSize: 13, letterSpacing: "0.08em", color: "var(--accent)" }}>
+          <div style={{ width: 1, height: 18, background: "var(--border)", flexShrink: 0 }} />
+          <span className="studio-mark" style={{ fontWeight: 800, textTransform: "uppercase", fontSize: 16, letterSpacing: "0.08em", color: "var(--accent)" }}>
             Studio
           </span>
         </Link>
@@ -172,23 +201,16 @@ export function Sidebar() {
       </div>
 
       {/* ─── User Profile ─── */}
-      <div style={{ padding: "10px 10px 14px" }}>
-        <button
+      <div style={{ padding: "10px 10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
+        <div
           style={{
-            width: "100%",
+            flex: 1,
             display: "flex",
             alignItems: "center",
             gap: 9,
-            padding: "8px 10px",
-            borderRadius: "var(--radius-md)",
-            background: "transparent",
-            border: "none",
-            cursor: "pointer",
-            transition: "background 0.1s",
-            textAlign: "left",
+            padding: "8px 4px",
+            minWidth: 0,
           }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface)")}
-          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
         >
           <div
             style={{
@@ -207,7 +229,7 @@ export function Sidebar() {
               flexShrink: 0,
             }}
           >
-            RH
+            {userName ? userName.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() : "RH"}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <p
@@ -219,14 +241,42 @@ export function Sidebar() {
                 whiteSpace: "nowrap",
                 overflow: "hidden",
                 textOverflow: "ellipsis",
+                margin: 0,
               }}
             >
-              Ratul Hasan
+              {userName || "Ratul Hasan"}
             </p>
-            <p style={{ fontSize: 10, color: "var(--foreground-muted)", textTransform: "capitalize" }}>
-              Owner
+            <p style={{ fontSize: 10, color: "var(--foreground-muted)", textTransform: "capitalize", margin: 0 }}>
+              {userLabel || "Owner"}
             </p>
           </div>
+        </div>
+        <button
+          className="btn-logout"
+          onClick={handleLogout}
+          title="Sign Out"
+          style={{
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            color: "var(--foreground-muted)",
+            padding: 8,
+            borderRadius: "var(--radius-md)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "all 0.15s",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "#FEE2E2";
+            e.currentTarget.style.color = "#DC2626";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "none";
+            e.currentTarget.style.color = "var(--foreground-muted)";
+          }}
+        >
+          <LogOut size={16} />
         </button>
       </div>
 
