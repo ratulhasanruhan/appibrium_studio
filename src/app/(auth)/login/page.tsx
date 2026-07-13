@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Eye, EyeOff, ArrowRight, Loader2 } from "lucide-react";
 import Link from "next/link";
+import { account } from "@/lib/appwrite/client";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -15,10 +16,17 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    // TODO: connect to Appwrite auth
-    await new Promise((r) => setTimeout(r, 1000)); // simulate
-    setLoading(false);
-    setError("Authentication will be connected once Appwrite credentials are provided.");
+    try {
+      // Create session in Appwrite
+      await account.createEmailPasswordSession(email, password);
+      // Force redirect
+      window.location.href = "/dashboard";
+    } catch (err: any) {
+      console.error("Login failed:", err);
+      setError(err.message || "Failed to sign in. Please verify your credentials.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (

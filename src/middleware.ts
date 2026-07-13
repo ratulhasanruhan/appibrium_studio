@@ -24,13 +24,22 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // In a fully configured production environment, retrieve session cookie:
-  // (e.g. Appwrite standard cookie name is usually matching your project ID/auth token)
-  const hasSession = request.cookies.has("a_session") || request.cookies.has("session");
+  // In a fully configured environment, retrieve standard Appwrite cookies:
+  // Appwrite sets cookies starting with `a_session_` followed by the project ID.
+  const sessionCookieName = `a_session_${appwriteProject}`;
+  const hasSession =
+    request.cookies.has(sessionCookieName) ||
+    request.cookies.has("a_session") ||
+    request.cookies.has("session");
 
   if (!hasSession && pathname !== "/login") {
-    // For now, during evaluation, we'll bypass to allow navigation unless explicitly set
-    return NextResponse.next();
+    // Redirect to login page if unauthenticated
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  if (hasSession && pathname === "/login") {
+    // Redirect to dashboard if already authenticated
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   return NextResponse.next();
