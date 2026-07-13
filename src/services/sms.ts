@@ -39,48 +39,45 @@ function normalizeBDPhone(phone: string): string {
 export async function sendSMS(payload: SMSPayload): Promise<SMSResult> {
   const apiUrl    = process.env.SMS_API_URL;
   const apiKey    = process.env.SMS_API_KEY;
-  const senderId  = process.env.SMS_SENDER_ID ?? "APPIBRIUM";
+  const secretKey = process.env.SMS_SECRET_KEY;
+  const senderId  = process.env.SMS_SENDER_ID ?? "kilagbe";
 
-  if (!apiUrl || !apiKey) {
-    console.warn("[SMS] SMS_API_URL or SMS_API_KEY not configured.");
+  if (!apiUrl || !apiKey || !secretKey) {
+    console.warn("[SMS] SMS configuration parameters missing in .env.local.");
     return { success: false, error: "SMS service not configured." };
   }
 
   const to = normalizeBDPhone(payload.to);
 
   try {
-    /**
-     * Generic HTTP POST format — most BD SMS gateways (e.g. SSL Wireless,
-     * Alpha Net, Bulk SMS BD) accept a JSON body like this.
-     * Adjust the body shape below to match your provider's API spec.
-     */
-    const body = {
-      api_key:   apiKey,
-      sender_id: senderId,
-      number:    to,
-      message:   payload.message,
-    };
-
-    const response = await fetch(apiUrl, {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify(body),
+    // Construct the exact GET request URL provided by the user
+    const params = new URLSearchParams({
+      apikey: apiKey,
+      secretkey: secretKey,
+      callerID: senderId,
+      toUser: to,
+      messageContent: payload.message,
     });
 
-    const data = await response.json().catch(() => ({}));
+    const url = `${apiUrl}?${params.toString()}`;
+
+    const response = await fetch(url, {
+      method: "GET",
+    });
+
+    const data = await response.text();
 
     if (!response.ok) {
       return {
         success: false,
-        error:   `Gateway error: ${response.status}`,
-        raw:     data,
+        error: `Gateway error: ${response.status}`,
+        raw: data,
       };
     }
 
     return {
-      success:    true,
-      message_id: data?.message_id ?? data?.id ?? undefined,
-      raw:        data,
+      success: true,
+      raw: data,
     };
   } catch (err) {
     const error = err instanceof Error ? err.message : "Unknown error";
