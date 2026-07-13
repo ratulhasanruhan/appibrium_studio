@@ -76,21 +76,16 @@ export function Sidebar() {
 
       {/* ─── Wordmark Header ─── */}
       <div className="sidebar-header">
-        <Link href="/dashboard" className="flex items-center gap-2.5 select-none">
+        <Link href="/dashboard" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }} className="select-none">
           <img
-            src="/branding_assets/logos/icon/icon_mint.svg"
-            alt="Appibrium mark"
-            style={{ width: 26, height: 26, objectFit: "contain", flexShrink: 0 }}
+            src="/branding_assets/logos/lockup/lockup_w4_light.svg"
+            alt="Appibrium"
+            style={{ height: 20, width: "auto", objectFit: "contain", flexShrink: 0 }}
           />
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <img
-              src="/branding_assets/logos/wordmark/wordmark_dark.svg"
-              alt="Appibrium"
-              style={{ height: 13, width: "auto" }}
-            />
-            <div style={{ width: 1, height: 12, background: "var(--border)", flexShrink: 0 }} />
-            <span className="studio-mark">Studio</span>
-          </div>
+          <div style={{ width: 1, height: 14, background: "var(--border)", flexShrink: 0 }} />
+          <span className="studio-mark" style={{ fontWeight: 800, textTransform: "uppercase", fontSize: 13, letterSpacing: "0.08em", color: "var(--accent)" }}>
+            Studio
+          </span>
         </Link>
       </div>
 

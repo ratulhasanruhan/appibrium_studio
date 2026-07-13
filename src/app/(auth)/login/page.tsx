@@ -36,30 +36,23 @@ export default function LoginPage() {
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 36 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
           <img
-            src="/branding_assets/logos/icon/icon_mint.svg"
+            src="/branding_assets/logos/lockup/lockup_w4_light.svg"
             alt="Appibrium"
-            style={{ width: 36, height: 36 }}
+            style={{ height: 22, width: "auto" }}
           />
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <img
-              src="/branding_assets/logos/wordmark/wordmark_dark.svg"
-              alt="Appibrium"
-              style={{ height: 16, width: "auto" }}
-            />
-            <div style={{ width: 1, height: 14, background: "var(--border)" }} />
-            <span
-              style={{
-                fontFamily: "var(--font-heading)",
-                fontWeight: 300,
-                fontSize: 13,
-                letterSpacing: "0.28em",
-                textTransform: "uppercase",
-                color: "var(--accent)",
-              }}
-            >
-              Studio
-            </span>
-          </div>
+          <div style={{ width: 1, height: 16, background: "var(--border)" }} />
+          <span
+            style={{
+              fontFamily: "var(--font-heading)",
+              fontWeight: 800,
+              fontSize: 15,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              color: "var(--accent)",
+            }}
+          >
+            Studio
+          </span>
         </div>
         <p style={{ fontSize: 13, color: "var(--foreground-muted)", marginTop: 4, textAlign: "center" }}>
           Sign in to your workspace

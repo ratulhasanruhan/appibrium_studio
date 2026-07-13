@@ -212,13 +212,16 @@ export default function PublicInvoicePortal() {
 
         {/* Action Header */}
         <div className="card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 24px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <img src="/branding_assets/logos/icon/icon_mint.svg" alt="Appibrium" style={{ width: 28, height: 28 }} />
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <img src="/branding_assets/logos/wordmark/wordmark_dark.svg" alt="Appibrium" style={{ height: 13, width: "auto" }} />
-              <div style={{ width: 1, height: 10, background: "var(--border)" }} />
-              <span className="studio-mark" style={{ fontSize: 10 }}>Studio</span>
-            </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <img
+              src="/branding_assets/logos/lockup/lockup_w4_light.svg"
+              alt="Appibrium"
+              style={{ height: 18, width: "auto" }}
+            />
+            <div style={{ width: 1, height: 12, background: "var(--border)" }} />
+            <span className="studio-mark" style={{ fontWeight: 800, textTransform: "uppercase", fontSize: 12, letterSpacing: "0.08em", color: "var(--accent)" }}>
+              Studio
+            </span>
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={handleDownload} disabled={downloading}>
