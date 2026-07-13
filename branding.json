@@ -1,0 +1,279 @@
+{
+    "brand": {
+        "name": "Appibrium",
+        "legal_name": "Appibrium Technology Co.",
+        "tagline": "Engineering the Future",
+        "description": "Appibrium is an engineering company that designs, builds, and scales intelligent technologies across software, AI, cloud infrastructure, embedded systems, and IoT. We partner with startups, businesses, and organizations to create reliable, future-ready solutions that solve real-world problems.",
+        "mission": "To engineer meaningful technology that empowers people, businesses, and communities through intelligent, scalable, and reliable solutions.",
+        "vision": "To become a globally trusted engineering company shaping the future through innovation, research, and technology.",
+        "founded_year": 2021,
+        "contact": {
+            "email": "hello@appibrium.com",
+            "address": "23/A Shukrabad, Dhaka, Bangladesh, 1207",
+            "website": "https://appibrium.com"
+        },
+        "social_channels": {
+            "facebook": "https://www.facebook.com/appibrium",
+            "linkedin": "https://www.linkedin.com/company/appibrium/",
+            "youtube": "https://www.youtube.com/@appibrium"
+        }
+    },
+    "services": [
+        {
+            "name": "AI Engineering",
+            "description": "Designing intelligent systems and features that automate workflows and enhance user experience."
+        },
+        {
+            "name": "Software Engineering",
+            "description": "Building scalable, reliable, and maintainable software for real-world applications."
+        },
+        {
+            "name": "Cloud Infrastructure",
+            "description": "Designing secure and scalable cloud infrastructure for modern digital products."
+        },
+        {
+            "name": "Embedded Systems",
+            "description": "Designing and developing customized hardware systems."
+        },
+        {
+            "name": "Internet of Things (IoT)",
+            "description": "Creating smart, connected hardware solutions integrating sensors, devices, and real-time data."
+        },
+        {
+            "name": "Product Engineering",
+            "description": "Fusing research, design, and engineering to create end-to-end scalable technologies."
+        },
+        {
+            "name": "Research & Innovation",
+            "description": "Exploring next-generation technologies to solve complex real-world problems."
+        }
+    ],
+    "visual_identity": {
+        "design_concept": "Appibrium contrasts the mysterious, structured depth of Forest Depth (representing stable foundations, organic growth, and balance) with an energetic, glowing Electric Mint (representing innovation, technology, and future direction).",
+        "color_palette": {
+            "night": {
+                "hex": "#0A1A10",
+                "rgb": "rgb(10, 26, 16)",
+                "role": "Primary Dark Background",
+                "recommended_usage": "Base background for dark mode interfaces and dark icons."
+            },
+            "deep": {
+                "hex": "#0D2317",
+                "rgb": "rgb(13, 35, 23)",
+                "role": "Secondary Dark Background / Elevation",
+                "recommended_usage": "Alternate backgrounds, cards, nested boxes, and elevations."
+            },
+            "forest": {
+                "hex": "#152B1C",
+                "rgb": "rgb(21, 43, 28)",
+                "role": "Accent Dark / Border",
+                "recommended_usage": "Borders, grid lines, subtle highlights, and deep green accents."
+            },
+            "mint": {
+                "hex": "#00E090",
+                "rgb": "rgb(0, 224, 144)",
+                "role": "Primary Accent / Glow",
+                "recommended_usage": "Main brand color, interactive buttons, glow elements, active links, and highlights."
+            },
+            "deep_mint": {
+                "hex": "#00B872",
+                "rgb": "rgb(0, 184, 114)",
+                "role": "Secondary Accent / Hover",
+                "recommended_usage": "Active states, hover states, filled buttons, and secondary accents."
+            },
+            "snow": {
+                "hex": "#F2FFF9",
+                "rgb": "rgb(242, 255, 249)",
+                "role": "Light Surface Canvas",
+                "recommended_usage": "Light theme background, clear high-contrast cards. Eliminates harsh white glare."
+            },
+            "white": {
+                "hex": "#FAFCFA",
+                "rgb": "rgb(250, 252, 250)",
+                "role": "Primary Text / Foreground",
+                "recommended_usage": "Clean text contrast on dark backgrounds."
+            }
+        },
+        "typography": {
+            "primary": {
+                "family": "Jost",
+                "provider": "Google Fonts",
+                "style": "Geometric, clean, and forward-looking",
+                "weights": [
+                    300,
+                    400,
+                    500,
+                    600,
+                    700,
+                    800,
+                    900
+                ],
+                "recommended_usage": "Display headlines, hero titles, and corporate signature typography."
+            },
+            "secondary": {
+                "family": "Plus Jakarta Sans",
+                "provider": "Google Fonts",
+                "style": "Humanist-geometric hybrid, highly legible",
+                "weights": [
+                    300,
+                    400,
+                    500,
+                    600,
+                    700,
+                    800
+                ],
+                "recommended_usage": "Body copy, taglines, guidelines, labels, and UI controls."
+            }
+        }
+    },
+    "assets": {
+        "base_url": "https://appibrium.github.io/",
+        "logos": {
+            "standalone_icon": {
+                "description": "Standalone brand mark variants optimized for avatars, profile pictures, and compact layout elements.",
+                "variants": {
+                    "mint": {
+                        "svg": "logos/icon/icon_mint.svg",
+                        "png_1024": "logos/icon/icon_mint_on_transparent_1024.png",
+                        "png_512": "logos/icon/icon_mint_on_transparent_512.png",
+                        "png_256": "logos/icon/icon_mint_on_transparent_256.png",
+                        "png_128": "logos/icon/icon_mint_on_transparent_128.png",
+                        "png_96": "logos/icon/icon_mint_on_transparent_96.png",
+                        "png_64": "logos/icon/icon_mint_on_transparent_64.png"
+                    },
+                    "night": {
+                        "svg": "logos/icon/icon_night.svg",
+                        "png_1024": "logos/icon/icon_night_on_transparent_1024.png",
+                        "png_512": "logos/icon/icon_night_on_transparent_512.png",
+                        "png_256": "logos/icon/icon_night_on_transparent_256.png",
+                        "png_128": "logos/icon/icon_night_on_transparent_128.png",
+                        "png_96": "logos/icon/icon_night_on_transparent_96.png",
+                        "png_64": "logos/icon/icon_night_on_transparent_64.png"
+                    },
+                    "outline": {
+                        "svg": "logos/icon/icon_outline.svg",
+                        "png_1024": "logos/icon/icon_outline_mint_1024.png",
+                        "png_512": "logos/icon/icon_outline_mint_512.png",
+                        "png_256": "logos/icon/icon_outline_mint_256.png",
+                        "png_128": "logos/icon/icon_outline_mint_128.png",
+                        "png_96": "logos/icon/icon_outline_mint_96.png",
+                        "png_64": "logos/icon/icon_outline_mint_64.png"
+                    }
+                }
+            },
+            "horizontal_lockup": {
+                "description": "Standard corporate lockup containing icon + brand wordmark, ideal for site navigation and header segments.",
+                "variants": {
+                    "dark_backgrounds": {
+                        "svg": "logos/lockup/lockup_dark.svg",
+                        "png_large": "logos/lockup/lockup_dark_on_transparent_large.png",
+                        "png_medium": "logos/lockup/lockup_dark_on_transparent_medium.png",
+                        "png_small": "logos/lockup/lockup_dark_on_transparent_small.png"
+                    },
+                    "light_backgrounds": {
+                        "svg": "logos/lockup/lockup_light.svg",
+                        "png_large": "logos/lockup/lockup_light_on_transparent_large.png",
+                        "png_medium": "logos/lockup/lockup_light_on_transparent_medium.png",
+                        "png_small": "logos/lockup/lockup_light_on_transparent_small.png"
+                    }
+                }
+            },
+            "w4_lockup": {
+                "description": "Editorial branding lockup with vertical separator and left-stacked tagline. Recommended for documentation covers, reports, and publication banners.",
+                "variants": {
+                    "dark_backgrounds": {
+                        "svg": "logos/lockup/lockup_w4_dark.svg",
+                        "png_large": "logos/lockup/lockup_w4_dark_on_transparent_large.png",
+                        "png_medium": "logos/lockup/lockup_w4_dark_on_transparent_medium.png",
+                        "png_small": "logos/lockup/lockup_w4_dark_on_transparent_small.png"
+                    },
+                    "light_backgrounds": {
+                        "svg": "logos/lockup/lockup_w4_light.svg",
+                        "png_large": "logos/lockup/lockup_w4_light_on_transparent_large.png",
+                        "png_medium": "logos/lockup/lockup_w4_light_on_transparent_medium.png",
+                        "png_small": "logos/lockup/lockup_w4_light_on_transparent_small.png"
+                    }
+                }
+            },
+            "wordmark": {
+                "description": "Typography-only brand signature, optimal when vertical height is constrained and icon is unnecessary.",
+                "variants": {
+                    "dark_backgrounds": {
+                        "svg": "logos/wordmark/wordmark_light.svg",
+                        "png_large": "logos/wordmark/wordmark_light_on_transparent_large.png",
+                        "png_medium": "logos/wordmark/wordmark_light_on_transparent_medium.png",
+                        "png_small": "logos/wordmark/wordmark_light_on_transparent_small.png"
+                    },
+                    "light_backgrounds": {
+                        "svg": "logos/wordmark/wordmark_dark.svg",
+                        "png_large": "logos/wordmark/wordmark_dark_on_transparent_large.png",
+                        "png_medium": "logos/wordmark/wordmark_dark_on_transparent_medium.png",
+                        "png_small": "logos/wordmark/wordmark_dark_on_transparent_small.png"
+                    }
+                }
+            },
+            "wordmark_clean": {
+                "description": "Tagline-free typography brand signature for streamlined visual layouts.",
+                "variants": {
+                    "dark_backgrounds": {
+                        "svg": "logos/wordmark/wordmark_notag_light.svg"
+                    },
+                    "light_backgrounds": {
+                        "svg": "logos/wordmark/wordmark_notag_dark.svg"
+                    }
+                }
+            },
+            "stacked_logo": {
+                "description": "Centered square logo configuration, best for square profiles, apparel branding, and social avatar marks.",
+                "variants": {
+                    "dark_backgrounds": {
+                        "png_large": "logos/stacked/stacked_dark_on_transparent_large.png",
+                        "png_medium": "logos/stacked/stacked_dark_on_transparent_medium.png",
+                        "png_small": "logos/stacked/stacked_dark_on_transparent_small.png"
+                    },
+                    "light_backgrounds": {
+                        "png_large": "logos/stacked/stacked_light_on_transparent_large.png",
+                        "png_medium": "logos/stacked/stacked_light_on_transparent_medium.png",
+                        "png_small": "logos/stacked/stacked_light_on_transparent_small.png"
+                    }
+                }
+            }
+        },
+        "elements": {
+            "description": "Social media cover and profile logo elements for digital channels.",
+            "social_cover": {
+                "description": "Appibrium social media channel cover banner graphic.",
+                "png": "media-kit/elements/social_cover.png"
+            },
+            "social_logo": {
+                "description": "Appibrium social media profile logo symbol graphic.",
+                "png": "media-kit/elements/social_logo.png"
+            }
+        }
+    },
+    "compliance_and_rules": {
+        "clear_space": "Keep at least 25% height-equivalent padding zone (clear space) around all standalone icons and logotypes.",
+        "accent_ratio": "Limit Electric Mint (#00E090) accent to a maximum of 10-15% of the total layout surface to keep visual aesthetic values high.",
+        "alignment": "Always left-align typography when utilizing standard lockups. Tagline segments must never be centered independently of the name spans.",
+        "dos": [
+            {
+                "rule": "High contrast lockups",
+                "description": "Use the dark lockup on Night, Deep Forest, or dark-themed interfaces for solid contrast."
+            },
+            {
+                "rule": "Clear space allocation",
+                "description": "Keep at least 25% height-equivalent padding zone around all standalone icons and logotypes."
+            }
+        ],
+        "donts": [
+            {
+                "rule": "Poor background contrast",
+                "description": "Never place the white-wordmark dark lockup on light backgrounds or low-contrast containers."
+            },
+            {
+                "rule": "Stretch or distort assets",
+                "description": "Never modify or squeeze the logo aspect ratios. Scale them proportionally to preserve geometric proportions."
+            }
+        ]
+    }
+}

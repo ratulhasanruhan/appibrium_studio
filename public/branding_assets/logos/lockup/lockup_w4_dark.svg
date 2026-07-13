@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 130" width="100%" height="100%">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Jost:wght@800&amp;family=Plus+Jakarta+Sans:wght@500&amp;display=swap');
+      .logo-text { font-family: 'Jost', sans-serif; font-weight: 800; }
+      .tag-text { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 500; }
+    </style>
+  </defs>
+  <!-- Stacked Tagline Group -->
+  <g>
+    <text x="130" y="57" class="tag-text" font-size="8" fill="#00E090" opacity="0.7" text-anchor="end" letter-spacing="0.3em">ENGINEERING</text>
+    <text x="130" y="73" class="tag-text" font-size="8" fill="#00E090" opacity="0.7" text-anchor="end" letter-spacing="0.3em">THE FUTURE</text>
+  </g>
+  <!-- Vertical Separator -->
+  <line x1="150" y1="39" x2="150" y2="91" stroke="#00E090" stroke-width="1.5" opacity="0.3" />
+  <!-- Wordmark -->
+  <text x="170" y="85" class="logo-text" font-size="68" fill="#FAFCFA" letter-spacing="-0.04em"><tspan fill="#00E090">a</tspan>ppibrium</text>
+</svg>

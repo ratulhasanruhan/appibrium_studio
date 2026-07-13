@@ -1,0 +1,240 @@
+"use client";
+
+import { useEffect } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { client } from "@/lib/appwrite/client";
+import { cn } from "@/utils";
+import {
+  LayoutDashboard,
+  Users,
+  FolderKanban,
+  FileText,
+  Receipt,
+  ArrowLeftRight,
+  HardDrive,
+  BarChart3,
+  Bell,
+  Bot,
+  Settings,
+  ChevronDown,
+} from "lucide-react";
+
+interface NavItem {
+  label: string;
+  href: string;
+  icon: React.ElementType;
+}
+
+const primaryNav: NavItem[] = [
+  { label: "Dashboard",    href: "/dashboard",    icon: LayoutDashboard },
+  { label: "CRM",          href: "/crm",          icon: Users },
+  { label: "Projects",     href: "/projects",     icon: FolderKanban },
+  { label: "Proposals",    href: "/proposals",    icon: FileText },
+  { label: "Invoices",     href: "/invoices",     icon: Receipt },
+  { label: "Transactions", href: "/transactions", icon: ArrowLeftRight },
+];
+
+const toolsNav: NavItem[] = [
+  { label: "Files",        href: "/files",        icon: HardDrive },
+  { label: "Analytics",   href: "/analytics",    icon: BarChart3 },
+  { label: "AI Assistant", href: "/assistant",    icon: Bot },
+];
+
+const systemNav: NavItem[] = [
+  { label: "Notifications", href: "/notifications", icon: Bell },
+  { label: "Settings",      href: "/settings",      icon: Settings },
+];
+
+function NavLink({ item }: { item: NavItem }) {
+  const pathname = usePathname();
+  const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
+  const Icon = item.icon;
+  return (
+    <Link
+      href={item.href}
+      className={cn("sidebar-item", isActive && "active")}
+    >
+      <Icon size={15} className="icon" />
+      <span>{item.label}</span>
+    </Link>
+  );
+}
+
+export function Sidebar() {
+  useEffect(() => {
+    // Ping Appwrite server on mount
+    if (typeof (client as any).ping === "function") {
+      (client as any).ping().then((ok: boolean) => {
+        console.log(`[Appwrite Connection]: ${ok ? "Connected successfully! ✓" : "Failed to ping server. ✗"}`);
+      });
+    }
+  }, []);
+
+  return (
+    <aside className="sidebar">
+
+      {/* ─── Wordmark Header ─── */}
+      <div className="sidebar-header">
+        <Link href="/dashboard" className="flex items-center gap-2.5 select-none">
+          <img
+            src="/branding_assets/logos/icon/icon_mint.svg"
+            alt="Appibrium mark"
+            style={{ width: 26, height: 26, objectFit: "contain", flexShrink: 0 }}
+          />
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <img
+              src="/branding_assets/logos/wordmark/wordmark_dark.svg"
+              alt="Appibrium"
+              style={{ height: 13, width: "auto" }}
+            />
+            <div style={{ width: 1, height: 12, background: "var(--border)", flexShrink: 0 }} />
+            <span className="studio-mark">Studio</span>
+          </div>
+        </Link>
+      </div>
+
+      {/* ─── Workspace Pill ─── */}
+      <div style={{ padding: "10px 10px 4px" }}>
+        <button
+          style={{
+            width: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            padding: "7px 10px",
+            borderRadius: "var(--radius-md)",
+            background: "var(--surface)",
+            border: "1px solid var(--border)",
+            cursor: "pointer",
+            boxShadow: "var(--shadow-xs)",
+            transition: "box-shadow 0.12s, border-color 0.12s",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = "#C4DDD0";
+            e.currentTarget.style.boxShadow = "var(--shadow-sm)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = "var(--border)";
+            e.currentTarget.style.boxShadow = "var(--shadow-xs)";
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div
+              style={{
+                width: 20,
+                height: 20,
+                borderRadius: "var(--radius-sm)",
+                background: "var(--accent)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 10,
+                fontWeight: 700,
+                color: "#FFFFFF",
+                fontFamily: "var(--font-heading)",
+                flexShrink: 0,
+              }}
+            >
+              A
+            </div>
+            <span
+              style={{
+                fontSize: 12,
+                fontWeight: 500,
+                color: "var(--foreground)",
+                fontFamily: "var(--font-body)",
+              }}
+            >
+              Appibrium
+            </span>
+          </div>
+          <ChevronDown size={12} style={{ color: "var(--foreground-muted)" }} />
+        </button>
+      </div>
+
+      {/* ─── Primary Nav ─── */}
+      <div className="sidebar-section" style={{ marginTop: 4 }}>
+        <p className="sidebar-label">Workspace</p>
+        {primaryNav.map((item) => <NavLink key={item.href} item={item} />)}
+      </div>
+
+      {/* ─── Tools Nav ─── */}
+      <div className="sidebar-section" style={{ marginTop: 8 }}>
+        <p className="sidebar-label">Tools</p>
+        {toolsNav.map((item) => <NavLink key={item.href} item={item} />)}
+      </div>
+
+      {/* Spacer */}
+      <div style={{ flex: 1 }} />
+
+      {/* ─── System Nav ─── */}
+      <div
+        className="sidebar-section"
+        style={{ borderTop: "1px solid var(--border)", paddingTop: 8, paddingBottom: 10 }}
+      >
+        {systemNav.map((item) => <NavLink key={item.href} item={item} />)}
+      </div>
+
+      {/* ─── User Profile ─── */}
+      <div style={{ padding: "10px 10px 14px" }}>
+        <button
+          style={{
+            width: "100%",
+            display: "flex",
+            alignItems: "center",
+            gap: 9,
+            padding: "8px 10px",
+            borderRadius: "var(--radius-md)",
+            background: "transparent",
+            border: "none",
+            cursor: "pointer",
+            transition: "background 0.1s",
+            textAlign: "left",
+          }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface)")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+        >
+          <div
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: "50%",
+              background: "var(--accent-subtle)",
+              border: "1.5px solid var(--accent)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: 10,
+              fontWeight: 700,
+              color: "var(--accent)",
+              fontFamily: "var(--font-heading)",
+              flexShrink: 0,
+            }}
+          >
+            RH
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p
+              style={{
+                fontSize: 12,
+                fontWeight: 600,
+                color: "var(--foreground)",
+                fontFamily: "var(--font-body)",
+                whiteSpace: "nowrap",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+              }}
+            >
+              Ratul Hasan
+            </p>
+            <p style={{ fontSize: 10, color: "var(--foreground-muted)", textTransform: "capitalize" }}>
+              Owner
+            </p>
+          </div>
+        </button>
+      </div>
+
+    </aside>
+  );
+}
