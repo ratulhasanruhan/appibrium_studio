@@ -1,508 +1,407 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Download, CreditCard, ShieldCheck, ShieldAlert, Landmark, Smartphone, Loader2 } from "lucide-react";
-import { getInvoices } from "@/services/invoices";
+import { ShieldAlert, Loader2, Printer, Check, Landmark, Smartphone } from "lucide-react";
+import { getInvoiceByToken, getInvoiceItems } from "@/services/invoices";
 import { getClient } from "@/services/crm";
-import type { Invoice, Client, BankDetails } from "@/types";
+import type { Invoice, Client, InvoiceItem } from "@/types";
 import { formatDate, formatCurrency } from "@/utils";
 import { useParams } from "next/navigation";
 
-const DEFAULT_BANK: BankDetails = {
-  account_name:   "Appibrium Technology Co.",
-  account_number: "102.120.45678",
-  bank_name:      "Dutch-Bangla Bank PLC",
-  branch:         "Shukrabad Branch, Dhaka",
-  routing_number: "090273412",
-  mobile_banking: { provider: "bKash (Personal)", number: "01711000000" },
-};
-
 export default function PublicInvoicePortal() {
   const params = useParams();
-  const token = params?.token as string;
+  const token  = params?.token as string;
 
   const [invoice, setInvoice] = useState<Invoice | null>(null);
-  const [client, setClient] = useState<Client | null>(null);
+  const [client,  setClient]  = useState<Client | null>(null);
+  const [items,   setItems]   = useState<InvoiceItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Mock invoice items since we aren't using sub-collection queries in mock
-  const [items] = useState([
-    { description: "E-Commerce Re-platforming — Milestone 1 (Design Sign-off)", quantity: 1, unit_price: 45000, amount: 45000 },
-    { description: "Database Integration & Schema Provisioning", quantity: 1, unit_price: 35000, amount: 35000 },
-  ]);
-
-  const [downloading, setDownloading] = useState(false);
-
-  async function handleDownload() {
-    if (!invoice) return;
-    setDownloading(true);
-    try {
-      const fullHtml = `
-        <html>
-          <head>
-            <style>
-              body { font-family: system-ui, sans-serif; padding: 40px; color: #0D2317; }
-              .header { display: flex; justify-content: space-between; border-bottom: 2px solid #00B872; padding-bottom: 10px; margin-bottom: 20px; }
-              .title { font-size: 20px; font-weight: 700; }
-              .section { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
-              .table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-              .table th { background: #EBF7F1; padding: 8px; font-size: 10px; text-transform: uppercase; text-align: left; }
-              .table td { padding: 8px; border-bottom: 1px solid #E7F4EE; font-size: 12px; }
-              .total-sec { display: flex; justify-content: flex-end; }
-              .bank-info { margin-top: 30px; background: #F4FBF7; border: 1px solid #D6EDE1; padding: 15px; border-radius: 8px; font-size: 11px; }
-            </style>
-          </head>
-          <body>
-            <div class="header">
-              <div>
-                <div class="title">INVOICE</div>
-                <p style="font-size: 11px; color: #6B8F7C;">INV-${invoice.$id.toUpperCase()}</p>
-              </div>
-              <div style="text-align: right; font-size: 11px;">
-                <strong>Appibrium Technology Co.</strong>
-                <p>23/A Shukrabad, Dhaka</p>
-              </div>
-            </div>
-
-            <div class="section">
-              <div>
-                <strong>Billed To:</strong>
-                <p style="font-size: 12px; margin-top: 4px;">${client?.name || "Valued Client"}</p>
-                <p style="font-size: 11px; color: #6B8F7C;">${client?.address || ""}</p>
-              </div>
-              <div style="text-align: right; font-size: 11px;">
-                <p>Issue Date: ${formatDate(invoice.issue_date)}</p>
-                <p>Due Date: ${formatDate(invoice.due_date)}</p>
-              </div>
-            </div>
-
-            <table class="table">
-              <thead>
-                <tr>
-                  <th>Description</th>
-                  <th style="text-align: right;">Qty</th>
-                  <th style="text-align: right;">Unit Price</th>
-                  <th style="text-align: right;">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${items
-                  .map(
-                    (item) => `
-                  <tr>
-                    <td>${item.description}</td>
-                    <td style="text-align: right;">${item.quantity}</td>
-                    <td style="text-align: right;">৳${item.unit_price}</td>
-                    <td style="text-align: right;">৳${item.amount}</td>
-                  </tr>
-                `
-                  )
-                  .join("")}
-              </tbody>
-            </table>
-
-            <div class="total-sec">
-              <div style="width: 200px; font-size: 12px;">
-                <div style="display: flex; justify-content: space-between;">
-                  <span>Subtotal:</span>
-                  <span>৳${invoice.subtotal}</span>
-                </div>
-                ${
-                  invoice.discount > 0
-                    ? `
-                <div style="display: flex; justify-content: space-between; color: #D14F4F;">
-                  <span>Discount:</span>
-                  <span>-৳${invoice.discount}</span>
-                </div>
-                `
-                    : ""
-                }
-                <hr style="border: 0; border-top: 1px solid #D6EDE1; margin: 8px 0;" />
-                <div style="display: flex; justify-content: space-between; font-weight: 700; font-size: 14px;">
-                  <span>Total:</span>
-                  <span>৳${invoice.total}</span>
-                </div>
-              </div>
-            </div>
-
-            <div class="bank-info">
-              <strong style="font-size: 12px; color: #0D2317;">Bank Transfer Instructions</strong>
-              <p style="margin-top: 6px;">Bank: ${bank.bank_name}</p>
-              <p>Account Name: ${bank.account_name}</p>
-              <p>Account Number: ${bank.account_number}</p>
-              <p>Branch: ${bank.branch}</p>
-              <p>Routing Number: ${bank.routing_number}</p>
-              ${
-                bank.mobile_banking?.number
-                  ? `<p style="margin-top: 6px; font-weight: 600; color: #00B872;">${bank.mobile_banking.provider}: ${bank.mobile_banking.number}</p>`
-                  : ""
-              }
-            </div>
-          </body>
-        </html>
-      `;
-
-      const response = await fetch("/api/pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          html: fullHtml,
-          filename: `invoice_${invoice.$id}.pdf`,
-        }),
-      });
-
-      if (!response.ok) throw new Error("Failed to generate PDF");
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `invoice_${invoice.$id}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    } catch (error) {
-      console.error(error);
-      alert("Failed to download PDF. Falling back to browser print.");
-      window.print();
-    } finally {
-      setDownloading(false);
-    }
-  }
-
   useEffect(() => {
-    async function loadInvoice() {
+    async function load() {
+      if (!token) return;
       setLoading(true);
-      const allInvoices = await getInvoices();
-      const found = allInvoices.find((i) => i.public_token === token) || allInvoices[0];
-      if (found) {
-        setInvoice(found);
-        const cl = await getClient(found.client_id);
+      const inv = await getInvoiceByToken(token);
+      if (inv) {
+        setInvoice(inv);
+        const [cl, lineItems] = await Promise.all([
+          getClient(inv.client_id),
+          getInvoiceItems(inv.$id),
+        ]);
         setClient(cl);
+        setItems(lineItems);
       }
       setLoading(false);
     }
-    if (token) {
-      loadInvoice();
-    }
+    load();
   }, [token]);
 
   if (loading) {
     return (
-      <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", background: "var(--background)", color: "var(--foreground-muted)" }}>
-        <p>Loading invoice portal...</p>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "#F4FBF7", gap: 14 }}>
+        <Loader2 size={28} style={{ color: "#00B872", animation: "spin 1s linear infinite" }} />
+        <p style={{ fontSize: 13, color: "#6B8F7C", fontFamily: "system-ui, sans-serif" }}>Loading invoice...</p>
+        <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
       </div>
     );
   }
 
   if (!invoice) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", minHeight: "100vh", background: "var(--background)", gap: 14 }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "#F4FBF7", gap: 16 }}>
         <ShieldAlert size={48} style={{ color: "#D14F4F" }} />
-        <p style={{ color: "var(--foreground-muted)" }}>Invalid token or invoice not found.</p>
+        <h1 style={{ fontSize: 18, fontWeight: 700, color: "#0D2317", fontFamily: "system-ui, sans-serif" }}>Invoice Not Found</h1>
+        <p style={{ fontSize: 13, color: "#6B8F7C" }}>This link may be invalid or the invoice has been removed.</p>
       </div>
     );
   }
 
-  const bank = invoice.bank_details ?? DEFAULT_BANK;
+  const invoiceRef = `APP-INV-${new Date(invoice.$createdAt).getFullYear()}-${invoice.$id.slice(-4).toUpperCase()}`;
+  const currency   = invoice.currency || "BDT";
+
+  // Parse bank details
+  let bankDetails: any = null;
+  if (invoice.bank_details) {
+    try {
+      bankDetails = typeof invoice.bank_details === "string"
+        ? JSON.parse(invoice.bank_details as any)
+        : invoice.bank_details;
+    } catch (_) {}
+  }
+
+  const statusColors: Record<string, { bg: string; color: string; label: string }> = {
+    paid:      { bg: "#E6FAF3", color: "#00965C", label: "✓ Paid" },
+    sent:      { bg: "#EEF4FF", color: "#3B72D4", label: "Awaiting Payment" },
+    overdue:   { bg: "#FEF2F2", color: "#D14F4F", label: "⚠ Overdue" },
+    draft:     { bg: "#F5F5F5", color: "#9CA3AF", label: "Draft" },
+    cancelled: { bg: "#F5F5F5", color: "#9CA3AF", label: "Cancelled" },
+  };
+  const statusInfo = statusColors[invoice.status] ?? statusColors["draft"];
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--background)", padding: "40px 20px" }}>
-      <div style={{ maxWidth: 840, margin: "0 auto", display: "flex", flexDirection: "column", gap: 20 }}>
+    <div className="invoice-portal">
+      {/* ─── Header ─── */}
+      <header className="inv-header no-print">
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <img src="/branding_assets/logos/lockup/lockup_w4_light.svg" alt="Appibrium" style={{ height: 26, width: "auto", filter: "brightness(0) invert(1)" }} />
+          <div style={{ width: 1, height: 18, background: "rgba(255,255,255,0.25)" }} />
+          <span style={{ fontFamily: "'Jost', system-ui, sans-serif", fontWeight: 800, fontSize: 13, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.9)" }}>Studio</span>
+        </div>
+        <button
+          onClick={() => window.print()}
+          style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 14px", borderRadius: 6, background: "#00E090", border: "none", color: "#0D2317", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'Jost', system-ui, sans-serif" }}
+        >
+          <Printer size={13} /> Download PDF
+        </button>
+      </header>
 
-        {/* Action Header */}
-        <div className="card" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 24px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <img
-              src="/branding_assets/logos/lockup/lockup_w4_light.svg"
-              alt="Appibrium"
-              style={{ height: 24, width: "auto" }}
-            />
-            <div style={{ width: 1, height: 16, background: "var(--border)" }} />
-            <span className="studio-mark" style={{ fontWeight: 800, textTransform: "uppercase", fontSize: 14, letterSpacing: "0.08em", color: "var(--accent)" }}>
-              Studio
-            </span>
+      {/* ─── Document ─── */}
+      <main className="inv-main">
+        <div className="invoice-doc">
+
+          {/* PDF-only elements */}
+          <div className="pdf-watermark">APPIBRIUM</div>
+          <div className="pdf-header">
+            <span>APPIBRIUM TECHNOLOGY CO. · INVOICE</span>
+            <span>{invoiceRef}</span>
           </div>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={handleDownload} disabled={downloading}>
-              {downloading ? (
-                <><Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> Generating...</>
-              ) : (
-                <><Download size={13} /> Download PDF</>
-              )}
-            </button>
+          <div className="pdf-footer">
+            <span>© {new Date().getFullYear()} Appibrium Technology Co. · Confidential</span>
+            <span>Page 1 of 1</span>
           </div>
-        </div>
 
-        {/* PDF Watermark & Print Headers (hidden in screen, shown in print) */}
-        <div className="pdf-watermark">APPIBRIUM</div>
-        <div className="pdf-header">
-          <span>APPIBRIUM TECHNOLOGY CO.</span>
-          <span>INVOICE: INV-{invoice.$id.toUpperCase()}</span>
-        </div>
-        <div className="pdf-footer">
-          <span>Dutch-Bangla Bank / bKash Manual Settlement</span>
-          <span>Page 1 of 1</span>
-        </div>
-
-        {/* Layout Grid */}
-        <div className="invoice-layout-grid" style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 20 }}>
-
-          {/* ─── Main Invoice ─── */}
-          <div className="card" style={{ padding: "40px", minHeight: 600, display: "flex", flexDirection: "column", gap: 28 }}>
-            {/* Header info */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", borderBottom: "1px solid var(--border)", paddingBottom: 20 }}>
-              <div>
-                <span className={`badge badge-${invoice.status}`} style={{ textTransform: "capitalize", fontSize: 12, padding: "4px 12px" }}>
-                  {invoice.status}
-                </span>
-                <h1 style={{ fontSize: 20, fontWeight: 700, fontFamily: "var(--font-heading)", marginTop: 12 }}>Invoice Details</h1>
-                <p style={{ fontSize: 11, color: "var(--foreground-muted)", fontFamily: "var(--font-mono, monospace)", marginTop: 2 }}>
-                  APP-INV-{new Date(invoice.$createdAt).getFullYear()}-{invoice.$id.toUpperCase()}
-                </p>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <p style={{ fontSize: 12, fontWeight: 700 }}>Appibrium Technology Co.</p>
-                <p style={{ fontSize: 11, color: "var(--foreground-muted)", marginTop: 2 }}>23/A Shukrabad, Dhaka</p>
-                <p style={{ fontSize: 11, color: "var(--foreground-muted)" }}>hello@appibrium.com</p>
-              </div>
+          {/* ─── Document Header ─── */}
+          <div className="inv-doc-header">
+            <div>
+              <div className="inv-badge">INVOICE</div>
+              <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: "#6B8F7C", marginTop: 6 }}>{invoiceRef}</p>
             </div>
-
-            {/* Billing addresses */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-              <div>
-                <span style={{ fontSize: 10, textTransform: "uppercase", color: "var(--foreground-muted)", fontWeight: 600, letterSpacing: "0.05em" }}>Billed To</span>
-                <p style={{ fontSize: 13, fontWeight: 700, marginTop: 4 }}>{client?.name || "Valued Client"}</p>
-                {client?.address && <p style={{ fontSize: 12, color: "var(--foreground-muted)", marginTop: 2, lineHeight: 1.5 }}>{client.address}</p>}
-                {client?.email && <p style={{ fontSize: 12, color: "var(--foreground-muted)", marginTop: 2 }}>{client.email}</p>}
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ display: "inline-block", textAlign: "left" }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "100px 120px", gap: "8px 12px", fontSize: 12 }}>
-                    <span style={{ color: "var(--foreground-muted)" }}>Issue Date:</span>
-                    <span style={{ fontWeight: 500 }}>{formatDate(invoice.issue_date)}</span>
-                    <span style={{ color: "var(--foreground-muted)" }}>Due Date:</span>
-                    <span style={{ fontWeight: 600, color: invoice.status === "overdue" ? "#D14F4F" : "inherit" }}>{formatDate(invoice.due_date)}</span>
-                  </div>
-                </div>
-              </div>
+            <div style={{ textAlign: "right" }}>
+              <img src="/branding_assets/logos/lockup/lockup_w4_light.svg" alt="Appibrium" style={{ height: 26, width: "auto", display: "block", marginLeft: "auto", marginBottom: 6 }} />
+              <p style={{ fontSize: 11, color: "#6B8F7C" }}>Appibrium Technology Co.</p>
+              <p style={{ fontSize: 11, color: "#6B8F7C" }}>23/A Shukrabad, Dhaka, Bangladesh</p>
             </div>
+          </div>
 
-            {/* Line items table */}
-            <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-md)", overflow: "hidden" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-                <thead>
-                  <tr style={{ borderBottom: "1px solid var(--border)", background: "var(--surface)" }}>
-                    <th style={{ padding: "8px 12px", textAlign: "left", color: "var(--foreground-muted)", fontSize: 10, letterSpacing: "0.05em", textTransform: "uppercase" }}>Description</th>
-                    <th style={{ padding: "8px 12px", textAlign: "right", color: "var(--foreground-muted)", fontSize: 10, letterSpacing: "0.05em", textTransform: "uppercase", width: 60 }}>Qty</th>
-                    <th style={{ padding: "8px 12px", textAlign: "right", color: "var(--foreground-muted)", fontSize: 10, letterSpacing: "0.05em", textTransform: "uppercase", width: 100 }}>Unit</th>
-                    <th style={{ padding: "8px 12px", textAlign: "right", color: "var(--foreground-muted)", fontSize: 10, letterSpacing: "0.05em", textTransform: "uppercase", width: 110 }}>Amount</th>
+          <div className="inv-accent-line" />
+
+          {/* ─── Billing & Details Strip ─── */}
+          <div className="inv-strip">
+            <div className="inv-strip-item">
+              <span className="strip-label">Billed To</span>
+              <span className="strip-value">{client?.name || "Valued Client"}</span>
+              {client?.email    && <span className="strip-sub">{client.email}</span>}
+              {client?.address  && <span className="strip-sub">{client.address}</span>}
+            </div>
+            <div className="inv-strip-item">
+              <span className="strip-label">Issue Date</span>
+              <span className="strip-value">{formatDate(invoice.issue_date)}</span>
+            </div>
+            <div className="inv-strip-item">
+              <span className="strip-label">Due Date</span>
+              <span className="strip-value" style={{ color: invoice.status === "overdue" ? "#D14F4F" : undefined }}>
+                {formatDate(invoice.due_date)}
+              </span>
+            </div>
+            <div className="inv-strip-item">
+              <span className="strip-label">Status</span>
+              <span style={{ display: "inline-block", padding: "3px 10px", borderRadius: 99, fontSize: 11, fontWeight: 600, background: statusInfo.bg, color: statusInfo.color, marginTop: 2 }}>
+                {statusInfo.label}
+              </span>
+            </div>
+          </div>
+
+          {/* ─── Title ─── */}
+          <div style={{ padding: "24px 40px 0" }}>
+            <h1 style={{ fontSize: 18, fontWeight: 700, color: "#0D2317", fontFamily: "'Jost', sans-serif" }}>{invoice.title}</h1>
+          </div>
+
+          {/* ─── Line Items ─── */}
+          <div style={{ padding: "20px 40px" }}>
+            <table className="inv-table">
+              <thead>
+                <tr>
+                  <th style={{ width: "50%" }}>Description</th>
+                  <th style={{ textAlign: "center" }}>Qty</th>
+                  <th style={{ textAlign: "right" }}>Unit Price</th>
+                  <th style={{ textAlign: "right" }}>Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} style={{ textAlign: "center", padding: "24px", color: "#6B8F7C", fontSize: 12 }}>
+                      No line items on record.
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {items.map((item, idx) => (
-                    <tr key={idx} style={{ borderBottom: idx < items.length - 1 ? "1px solid var(--border-subtle)" : "none" }}>
-                      <td style={{ padding: "10px 12px", color: "var(--foreground-2)" }}>{item.description}</td>
-                      <td style={{ padding: "10px 12px", textAlign: "right", color: "var(--foreground-muted)" }}>{item.quantity}</td>
-                      <td style={{ padding: "10px 12px", textAlign: "right", color: "var(--foreground-muted)" }}>{formatCurrency(item.unit_price, invoice.currency)}</td>
-                      <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 600, color: "var(--foreground)", fontFamily: "var(--font-heading)" }}>{formatCurrency(item.amount, invoice.currency)}</td>
+                ) : (
+                  items.map((item) => (
+                    <tr key={item.$id}>
+                      <td style={{ color: "#1E3A27" }}>{item.description}</td>
+                      <td style={{ textAlign: "center", color: "#6B8F7C" }}>{item.quantity}</td>
+                      <td style={{ textAlign: "right", color: "#6B8F7C" }}>{formatCurrency(item.unit_price, currency)}</td>
+                      <td style={{ textAlign: "right", fontWeight: 600, color: "#0D2317" }}>{formatCurrency(item.amount, currency)}</td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Total summary */}
-            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "auto" }}>
-              <div style={{ minWidth: 220, display: "flex", flexDirection: "column", gap: 8 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--foreground-muted)" }}>
-                  <span>Subtotal</span>
-                  <span>{formatCurrency(invoice.subtotal, invoice.currency)}</span>
-                </div>
-                {invoice.discount > 0 && (
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--foreground-muted)" }}>
-                    <span>Discount</span>
-                    <span style={{ color: "#D14F4F" }}>-{formatCurrency(invoice.discount, invoice.currency)}</span>
-                  </div>
+                  ))
                 )}
-                <div style={{ height: 1, background: "var(--border)" }} />
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, fontWeight: 700, fontFamily: "var(--font-heading)" }}>
-                  <span>Total</span>
-                  <span style={{ color: "var(--accent)" }}>{formatCurrency(invoice.total, invoice.currency)}</span>
-                </div>
-              </div>
-            </div>
+              </tbody>
+            </table>
+          </div>
 
-            {/* Bank details for print mode only */}
-            <div className="pdf-only-bank-details" style={{ display: "none", borderTop: "1px solid var(--border)", paddingTop: 20, marginTop: 20 }}>
-              <h3 style={{ fontSize: 12, fontWeight: 700, marginBottom: 8, color: "var(--accent)" }}>Bank Payment Instructions</h3>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, fontSize: 11 }}>
-                <div>
-                  <p style={{ margin: "2px 0" }}>Bank Name: <strong>{bank.bank_name}</strong></p>
-                  <p style={{ margin: "2px 0" }}>Branch: <strong>{bank.branch}</strong></p>
-                  <p style={{ margin: "2px 0" }}>Account Name: <strong>{bank.account_name}</strong></p>
+          {/* ─── Totals ─── */}
+          <div className="inv-totals-wrap">
+            <div className="inv-totals">
+              {[
+                { label: "Subtotal",  value: invoice.subtotal },
+                { label: "Discount",  value: -invoice.discount },
+                { label: "Tax",       value: invoice.tax },
+              ].filter((r) => r.value !== 0).map((row) => (
+                <div key={row.label} className="totals-row">
+                  <span>{row.label}</span>
+                  <span>{row.label === "Discount" ? `−${formatCurrency(Math.abs(row.value), currency)}` : formatCurrency(row.value, currency)}</span>
                 </div>
-                <div>
-                  <p style={{ margin: "2px 0" }}>Account Number: <strong>{bank.account_number}</strong></p>
-                  <p style={{ margin: "2px 0" }}>Routing Number: <strong>{bank.routing_number}</strong></p>
-                  {bank.mobile_banking?.number && <p style={{ margin: "2px 0" }}>bKash Personal: <strong>{bank.mobile_banking.number}</strong></p>}
-                </div>
+              ))}
+              <div className="totals-row totals-final">
+                <span>Total Due</span>
+                <span>{formatCurrency(invoice.total, currency)}</span>
               </div>
+              {invoice.status === "paid" && invoice.paid_at && (
+                <div style={{ marginTop: 8, padding: "6px 12px", background: "#E6FAF3", borderRadius: 6, display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#00965C", fontWeight: 600 }}>
+                  <Check size={12} /> Paid on {formatDate(invoice.paid_at)}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* ─── Sidebar: Manual Payment details ─── */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {/* Bank details card */}
-            <div className="card" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Landmark size={15} style={{ color: "var(--accent)" }} />
-                <h2 style={{ fontSize: 13, fontWeight: 600, fontFamily: "var(--font-heading)" }}>Bank Transfer</h2>
-              </div>
-              <p style={{ fontSize: 11, color: "var(--foreground-muted)", lineHeight: 1.5 }}>
-                Please transfer the invoice total manually to the following bank account.
-              </p>
-
-              <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 11 }}>
-                {[
-                  { label: "Account Name", value: bank.account_name },
-                  { label: "Account No.",  value: bank.account_number },
-                  { label: "Bank Name",    value: bank.bank_name },
-                  { label: "Branch",       value: bank.branch },
-                  { label: "Routing",      value: bank.routing_number },
-                ].map(({ label, value }) => (
-                  <div key={label} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                    <span style={{ color: "var(--foreground-muted)", fontSize: 10, textTransform: "uppercase", fontWeight: 600 }}>{label}</span>
-                    <span style={{ fontWeight: 500, color: "var(--foreground-2)" }}>{value || "—"}</span>
+          {/* ─── Bank Details ─── */}
+          {bankDetails && (
+            <div style={{ padding: "0 40px 28px" }}>
+              <div className="bank-section">
+                <p style={{ fontSize: 11, fontWeight: 700, color: "#0D2317", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>Payment Instructions</p>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+                  <div>
+                    <p style={{ fontSize: 10, fontWeight: 600, color: "#6B8F7C", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8, display: "flex", alignItems: "center", gap: 5 }}>
+                      <Landmark size={11} /> Bank Transfer
+                    </p>
+                    {[
+                      { k: "Account Name",   v: bankDetails.account_name },
+                      { k: "Account Number", v: bankDetails.account_number },
+                      { k: "Bank",           v: bankDetails.bank_name },
+                      { k: "Branch",         v: bankDetails.branch },
+                      { k: "Routing",        v: bankDetails.routing_number },
+                    ].filter((r) => r.v).map((row) => (
+                      <div key={row.k} style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, fontSize: 12 }}>
+                        <span style={{ color: "#6B8F7C" }}>{row.k}</span>
+                        <span style={{ fontWeight: 600, color: "#0D2317" }}>{row.v}</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Mobile Banking card */}
-            {bank.mobile_banking?.number && (
-              <div className="card" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <Smartphone size={15} style={{ color: "var(--accent)" }} />
-                  <h2 style={{ fontSize: 13, fontWeight: 600, fontFamily: "var(--font-heading)" }}>Mobile Banking</h2>
-                </div>
-                <p style={{ fontSize: 11, color: "var(--foreground-muted)", lineHeight: 1.5 }}>
-                  Alternatively, pay via mobile banking services:
-                </p>
-                <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: "10px 12px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: "var(--foreground)" }}>{bank.mobile_banking.provider}</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--accent)", fontFamily: "var(--font-heading)" }}>{bank.mobile_banking.number}</span>
-                </div>
-              </div>
-            )}
-
-            {/* Support terms */}
-            <div className="card" style={{ background: "var(--surface)", borderColor: "var(--border)" }}>
-              <div style={{ display: "flex", gap: 8 }}>
-                <ShieldCheck size={16} style={{ color: "var(--accent)", flexShrink: 0 }} />
-                <div>
-                  <h4 style={{ fontSize: 11, fontWeight: 600, color: "var(--foreground)" }}>Secure Billing</h4>
-                  <p style={{ fontSize: 10, color: "var(--foreground-muted)", lineHeight: 1.4, marginTop: 4 }}>
-                    Upon bank confirmation, your invoice status will be updated to Paid. Please email transfer receipts to hello@appibrium.com.
-                  </p>
+                  {bankDetails.mobile_banking?.number && (
+                    <div>
+                      <p style={{ fontSize: 10, fontWeight: 600, color: "#6B8F7C", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8, display: "flex", alignItems: "center", gap: 5 }}>
+                        <Smartphone size={11} /> Mobile Banking
+                      </p>
+                      <div style={{ padding: "10px 14px", background: "#F0FAF5", borderRadius: 8, border: "1px solid #D6EDE1" }}>
+                        <p style={{ fontSize: 13, fontWeight: 700, color: "#0D2317" }}>{bankDetails.mobile_banking.provider}</p>
+                        <p style={{ fontSize: 14, fontWeight: 800, color: "#00965C", fontFamily: "'JetBrains Mono', monospace", marginTop: 3 }}>{bankDetails.mobile_banking.number}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
+          )}
+
+          {/* ─── Notes ─── */}
+          {invoice.notes && (
+            <div style={{ padding: "0 40px 24px" }}>
+              <p style={{ fontSize: 11, fontWeight: 600, color: "#6B8F7C", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 6 }}>Notes</p>
+              <p style={{ fontSize: 12, color: "#1E3A27", lineHeight: 1.6 }}>{invoice.notes}</p>
+            </div>
+          )}
+
+          {/* ─── Footer ─── */}
+          <div className="inv-doc-footer">
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <img src="/branding_assets/logos/icon/icon_mint.svg" alt="" style={{ width: 16, height: 16, opacity: 0.5 }} />
+              <span>© {new Date().getFullYear()} Appibrium Technology Co. · All rights reserved · appibrium.com</span>
+            </div>
+            <span>Thank you for your business.</span>
           </div>
-
         </div>
+      </main>
 
       <style>{`
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        .invoice-portal { min-height: 100vh; background: #EEF5F0; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
+
+        .inv-header {
+          position: sticky; top: 0; z-index: 100;
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 0 32px; height: 56px;
+          background: #0D2317;
+          box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+        }
+
+        .inv-main { padding: 36px 20px 60px; }
+
+        .invoice-doc {
+          position: relative; max-width: 860px; margin: 0 auto;
+          background: #fff; border-radius: 12px;
+          box-shadow: 0 8px 40px rgba(13,35,23,0.12), 0 0 0 1px rgba(13,35,23,0.06);
+          overflow: hidden;
+        }
+
+        .inv-doc-header {
+          display: flex; align-items: flex-start; justify-content: space-between;
+          padding: 32px 40px 24px;
+          background: #FAFCFA; border-bottom: 1px solid #E8F2EC;
+        }
+
+        .inv-badge {
+          display: inline-block;
+          padding: 4px 14px; border-radius: 4px;
+          background: #0D2317; color: #00E090;
+          font-size: 13px; font-weight: 800;
+          letter-spacing: 0.14em;
+          font-family: 'Jost', sans-serif;
+        }
+
+        .inv-accent-line { height: 3px; background: linear-gradient(90deg, #00B872 0%, #00E090 60%, transparent 100%); }
+
+        .inv-strip {
+          display: grid; grid-template-columns: repeat(4, 1fr);
+          border-bottom: 1px solid #E8F2EC;
+        }
+        .inv-strip-item {
+          padding: 16px 24px; border-right: 1px solid #E8F2EC;
+          display: flex; flex-direction: column; gap: 3px;
+        }
+        .inv-strip-item:last-child { border-right: none; }
+        .strip-label { font-size: 10px; font-weight: 600; color: #6B8F7C; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px; }
+        .strip-value { font-size: 13px; font-weight: 600; color: #0D2317; }
+        .strip-sub   { font-size: 11px; color: #6B8F7C; }
+
+        .inv-table { width: 100%; border-collapse: collapse; }
+        .inv-table th {
+          background: #F0FAF5; padding: 9px 12px;
+          text-align: left; font-size: 10px; font-weight: 700;
+          color: #6B8F7C; text-transform: uppercase; letter-spacing: 0.05em;
+          border-bottom: 2px solid #D6EDE1;
+        }
+        .inv-table td { padding: 11px 12px; border-bottom: 1px solid #F0FAF5; font-size: 13px; }
+        .inv-table tbody tr:last-child td { border-bottom: none; }
+        .inv-table tbody tr:hover td { background: #F9FFFC; }
+
+        .inv-totals-wrap { display: flex; justify-content: flex-end; padding: 8px 40px 24px; }
+        .inv-totals { min-width: 260px; }
+        .totals-row { display: flex; justify-content: space-between; font-size: 12px; color: #6B8F7C; padding: 5px 0; border-bottom: 1px solid #F0FAF5; }
+        .totals-final {
+          font-size: 15px; font-weight: 800; color: #0D2317;
+          padding: 10px 0; border-top: 2px solid #00B872; border-bottom: none; margin-top: 4px;
+        }
+
+        .bank-section {
+          padding: 16px 20px; background: #F6FBF8;
+          border: 1px solid #D6EDE1; border-radius: 8px;
+        }
+
+        .inv-doc-footer {
+          display: flex; align-items: center; justify-content: space-between;
+          padding: 14px 40px;
+          background: #F6FBF8; border-top: 1px solid #E8F2EC;
+          font-size: 11px; color: #6B8F7C;
+        }
+
+        /* PDF / Print */
         .pdf-watermark { display: none; }
-        .pdf-header { display: none; }
-        .pdf-footer { display: none; }
+        .pdf-header    { display: none; }
+        .pdf-footer    { display: none; }
+
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
         @media print {
-          @page {
-            size: A4;
-            margin: 20mm 15mm 20mm 15mm;
-          }
-          body {
-            background: #ffffff !important;
-            color: #000000 !important;
-            padding-top: 30px;
-            padding-bottom: 30px;
-          }
-          .card {
-            border: none !important;
-            box-shadow: none !important;
-            background: none !important;
-            padding: 0 !important;
-          }
-          /* Hide action header during printing */
-          .card:first-of-type {
-            display: none !important;
-          }
-          /* Hide sidebar payment panel on print (since bank details are embedded now) */
-          .invoice-layout-grid {
-            display: block !important;
-          }
-          .invoice-layout-grid > div:last-child {
-            display: none !important;
-          }
-          .pdf-only-bank-details {
-            display: block !important;
-          }
+          @page { size: A4; margin: 18mm 14mm 20mm 14mm; }
+          html, body { background: #fff !important; }
+          .no-print { display: none !important; }
+          .inv-main { padding: 0 !important; }
+          .invoice-doc { max-width: 100%; border-radius: 0; box-shadow: none; border: none; }
+          .inv-doc-footer { display: none; }
+
           .pdf-watermark {
-            display: block !important;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(-45deg);
-            font-size: 80px;
-            color: rgba(0, 184, 114, 0.06) !important;
-            font-weight: 900;
+            display: block !important; position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%) rotate(-42deg);
+            font-size: 90px; font-weight: 900;
             font-family: 'Jost', sans-serif;
-            text-transform: uppercase;
-            letter-spacing: 0.25em;
-            pointer-events: none;
-            z-index: -1000;
-            white-space: nowrap;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
+            color: rgba(0, 184, 114, 0.05) !important;
+            text-transform: uppercase; letter-spacing: 0.2em;
+            pointer-events: none; z-index: 0; white-space: nowrap;
+            -webkit-print-color-adjust: exact; print-color-adjust: exact;
           }
+
           .pdf-header {
-            display: flex !important;
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 30px;
-            border-bottom: 1px solid rgba(0, 184, 114, 0.15);
-            align-items: center;
-            justify-content: space-between;
-            font-size: 8px;
-            color: #777777;
-            font-family: 'Jost', sans-serif;
-            letter-spacing: 0.1em;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
+            display: flex !important; position: fixed;
+            top: 0; left: 0; right: 0; height: 26px;
+            background: #0D2317;
+            align-items: center; justify-content: space-between;
+            padding: 0 16px; font-size: 8px; color: rgba(255,255,255,0.7);
+            font-family: 'Jost', sans-serif; letter-spacing: 0.1em;
+            -webkit-print-color-adjust: exact; print-color-adjust: exact;
           }
+
           .pdf-footer {
-            display: flex !important;
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 30px;
-            border-top: 1px solid rgba(0, 184, 114, 0.15);
-            align-items: center;
-            justify-content: space-between;
-            font-size: 8px;
-            color: #777777;
-            font-family: 'Jost', sans-serif;
-            letter-spacing: 0.1em;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
+            display: flex !important; position: fixed;
+            bottom: 0; left: 0; right: 0; height: 24px;
+            border-top: 1px solid rgba(0, 184, 114, 0.2);
+            align-items: center; justify-content: space-between;
+            padding: 0 16px; font-size: 8px; color: #6B8F7C;
+            font-family: 'Jost', sans-serif; letter-spacing: 0.08em;
+            -webkit-print-color-adjust: exact; print-color-adjust: exact;
           }
         }
       `}</style>
-      </div>
     </div>
   );
 }

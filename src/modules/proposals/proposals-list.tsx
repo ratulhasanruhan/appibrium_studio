@@ -1,47 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { Search, FileText, ExternalLink, Send, Clock } from "lucide-react";
-import type { Proposal } from "@/types";
-import { formatDate, formatRelativeTime } from "@/utils";
+import { useState, useEffect } from "react";
+import { Search, FileText, ExternalLink, Send, Clock, Loader2 } from "lucide-react";
+import type { Proposal, Client } from "@/types";
+import { formatRelativeTime } from "@/utils";
 import Link from "next/link";
+import { getProposals } from "@/services/proposals";
+import { getClients } from "@/services/crm";
 
-const MOCK_PROPOSALS: (Proposal & { client_name: string })[] = [
-  {
-    $id: "p1", client_id: "c1", client_name: "TechFlow Inc.", title: "E-Commerce Platform Development",
-    status: "accepted", public_token: "tok_abc123", version: 2, currency: "BDT",
-    sent_at: "2026-06-10T00:00:00Z", viewed_at: "2026-06-11T00:00:00Z", accepted_at: "2026-06-12T00:00:00Z",
-    $createdAt: "2026-06-08T00:00:00Z", $updatedAt: "2026-06-12T00:00:00Z",
-  },
-  {
-    $id: "p2", client_id: "c2", client_name: "BuildSmart Ltd.", title: "Cloud Infrastructure Migration",
-    status: "sent", public_token: "tok_def456", version: 1, currency: "BDT",
-    sent_at: "2026-07-01T00:00:00Z",
-    $createdAt: "2026-06-28T00:00:00Z", $updatedAt: "2026-07-01T00:00:00Z",
-  },
-  {
-    $id: "p3", client_id: "c3", client_name: "DataSync Corp.", title: "AI Data Pipeline & Analytics Dashboard",
-    status: "viewed", public_token: "tok_ghi789", version: 3, currency: "BDT",
-    sent_at: "2026-07-05T00:00:00Z", viewed_at: "2026-07-06T00:00:00Z",
-    $createdAt: "2026-07-03T00:00:00Z", $updatedAt: "2026-07-06T00:00:00Z",
-  },
-  {
-    $id: "p4", client_id: "c4", client_name: "CloudNova", title: "IoT Fleet Management System",
-    status: "draft", public_token: "tok_jkl012", version: 1, currency: "BDT",
-    $createdAt: "2026-07-10T00:00:00Z", $updatedAt: "2026-07-10T00:00:00Z",
-  },
-  {
-    $id: "p5", client_id: "c1", client_name: "TechFlow Inc.", title: "Mobile App Redesign — Phase 2",
-    status: "review", public_token: "tok_mno345", version: 1, currency: "BDT",
-    $createdAt: "2026-07-11T00:00:00Z", $updatedAt: "2026-07-12T00:00:00Z",
-  },
-  {
-    $id: "p6", client_id: "c5", client_name: "Nexus Systems", title: "ERP Integration Proposal",
-    status: "rejected", public_token: "tok_pqr678", version: 2, currency: "BDT",
-    sent_at: "2026-05-15T00:00:00Z",
-    $createdAt: "2026-05-12T00:00:00Z", $updatedAt: "2026-05-20T00:00:00Z",
-  },
-];
+type ProposalWithClient = Proposal & { client_name: string };
 
 const STATUS_BADGE: Record<string, string> = {
   draft:    "badge-draft",
@@ -64,10 +31,38 @@ const FILTERS: StatusFilter[] = ["all", "draft", "review", "sent", "viewed", "ac
 export function ProposalsList() {
   const [search, setSearch]   = useState("");
   const [filter, setFilter]   = useState<StatusFilter>("all");
+  const [proposals, setProposals] = useState<ProposalWithClient[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filtered = MOCK_PROPOSALS.filter((p) => {
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      try {
+        const [rawProposals, clients] = await Promise.all([
+          getProposals(),
+          getClients(),
+        ]);
+        const clientMap = new Map<string, string>(clients.map((c) => [c.$id, c.name]));
+        const enriched: ProposalWithClient[] = rawProposals.map((p) => ({
+          ...p,
+          client_name: clientMap.get(p.client_id) ?? "Unknown Client",
+        }));
+        setProposals(enriched);
+      } catch (err) {
+        console.error("[ProposalsList] load error:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  const filtered = proposals.filter((p) => {
     const q = search.toLowerCase();
-    const matchSearch = p.title.toLowerCase().includes(q) || p.client_name.toLowerCase().includes(q) || p.$id.toLowerCase().includes(q);
+    const matchSearch =
+      p.title.toLowerCase().includes(q) ||
+      p.client_name.toLowerCase().includes(q) ||
+      p.$id.toLowerCase().includes(q);
     const matchFilter = filter === "all" || p.status === filter;
     return matchSearch && matchFilter;
   });
@@ -107,87 +102,100 @@ export function ProposalsList() {
         </div>
         <div style={{ marginLeft: "auto" }}>
           <span style={{ fontSize: 12, color: "var(--foreground-muted)" }}>
-            {filtered.length} proposal{filtered.length !== 1 ? "s" : ""}
+            {loading ? "Loading..." : `${filtered.length} proposal${filtered.length !== 1 ? "s" : ""}`}
           </span>
         </div>
       </div>
 
       {/* Table */}
       <div style={{ background: "var(--background-alt)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden", boxShadow: "var(--shadow-xs)" }}>
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Proposal</th>
-              <th>Client</th>
-              <th>Status</th>
-              <th>Version</th>
-              <th>Last Updated</th>
-              <th style={{ width: 80 }} />
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
+        {loading ? (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "60px 20px", gap: 10, color: "var(--foreground-muted)" }}>
+            <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} />
+            <span style={{ fontSize: 13 }}>Loading proposals from database...</span>
+          </div>
+        ) : (
+          <table className="data-table">
+            <thead>
               <tr>
-                <td colSpan={6} style={{ textAlign: "center", padding: "44px", color: "var(--foreground-muted)" }}>
-                  No proposals found.
-                </td>
+                <th>Proposal</th>
+                <th>Client</th>
+                <th>Status</th>
+                <th>Version</th>
+                <th>Last Updated</th>
+                <th style={{ width: 80 }} />
               </tr>
-            ) : (
-              filtered.map((p) => (
-                <tr key={p.$id}>
-                  <td>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <div style={{ width: 30, height: 30, borderRadius: "var(--radius-md)", background: "var(--surface)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--accent)", flexShrink: 0 }}>
-                        <FileText size={13} />
-                      </div>
-                      <div>
-                        <p style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)", fontFamily: "var(--font-heading)" }}>{p.title}</p>
-                        <p style={{ fontSize: 11, color: "var(--foreground-muted)", fontFamily: "var(--font-mono, monospace)", letterSpacing: "0.02em" }}>
-                          APP-PROP-{new Date(p.$createdAt).getFullYear()}-{p.$id.slice(-3).padStart(4, "0")}
-                        </p>
-                      </div>
-                    </div>
-                  </td>
-                  <td>
-                    <span style={{ fontSize: 12, color: "var(--foreground-2)", fontWeight: 500 }}>{p.client_name}</span>
-                  </td>
-                  <td>
-                    <span className={`badge ${STATUS_BADGE[p.status]}`} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                      {STATUS_ICON[p.status]}
-                      {p.status}
-                    </span>
-                  </td>
-                  <td>
-                    <span style={{ fontSize: 12, color: "var(--foreground-muted)" }}>v{p.version}</span>
-                  </td>
-                  <td>
-                    <span suppressHydrationWarning style={{ fontSize: 12, color: "var(--foreground-muted)" }}>{formatRelativeTime(p.$updatedAt)}</span>
-                  </td>
-                  <td>
-                    <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                      <Link
-                        href={`/proposals/${p.$id}/edit`}
-                        style={{ fontSize: 11, color: "var(--accent)", textDecoration: "none", padding: "4px 8px", borderRadius: "var(--radius-sm)", background: "var(--accent-subtle)", border: "1px solid rgba(0,184,114,0.15)", fontWeight: 500, fontFamily: "var(--font-body)" }}
-                      >
-                        Edit
-                      </Link>
-                      <a
-                        href={`/public/proposal/${p.public_token}`}
-                        target="_blank"
-                        style={{ color: "var(--foreground-faint)", display: "flex", alignItems: "center", padding: 4, borderRadius: "var(--radius-sm)", transition: "color 0.1s" }}
-                        onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "var(--accent)")}
-                        onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "var(--foreground-faint)")}
-                      >
-                        <ExternalLink size={13} />
-                      </a>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: "center", padding: "60px 20px" }}>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                      <FileText size={32} style={{ color: "var(--foreground-faint)" }} />
+                      <p style={{ color: "var(--foreground-muted)", fontSize: 13, fontWeight: 500 }}>
+                        {proposals.length === 0 ? "No proposals yet. Create your first proposal!" : "No proposals match your search."}
+                      </p>
                     </div>
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ) : (
+                filtered.map((p) => (
+                  <tr key={p.$id}>
+                    <td>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{ width: 30, height: 30, borderRadius: "var(--radius-md)", background: "var(--surface)", border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--accent)", flexShrink: 0 }}>
+                          <FileText size={13} />
+                        </div>
+                        <div>
+                          <p style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)", fontFamily: "var(--font-heading)" }}>{p.title}</p>
+                          <p style={{ fontSize: 11, color: "var(--foreground-muted)", fontFamily: "var(--font-mono, monospace)", letterSpacing: "0.02em" }}>
+                            APP-PROP-{new Date(p.$createdAt).getFullYear()}-{p.$id.slice(-4).toUpperCase()}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      <span style={{ fontSize: 12, color: "var(--foreground-2)", fontWeight: 500 }}>{p.client_name}</span>
+                    </td>
+                    <td>
+                      <span className={`badge ${STATUS_BADGE[p.status] || "badge-draft"}`} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                        {STATUS_ICON[p.status]}
+                        {p.status}
+                      </span>
+                    </td>
+                    <td>
+                      <span style={{ fontSize: 12, color: "var(--foreground-muted)" }}>v{p.version}</span>
+                    </td>
+                    <td>
+                      <span suppressHydrationWarning style={{ fontSize: 12, color: "var(--foreground-muted)" }}>{formatRelativeTime(p.$updatedAt)}</span>
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                        <Link
+                          href={`/proposals/${p.$id}/edit`}
+                          style={{ fontSize: 11, color: "var(--accent)", textDecoration: "none", padding: "4px 8px", borderRadius: "var(--radius-sm)", background: "var(--accent-subtle)", border: "1px solid rgba(0,184,114,0.15)", fontWeight: 500, fontFamily: "var(--font-body)" }}
+                        >
+                          Edit
+                        </Link>
+                        <a
+                          href={`/public/proposal/${p.public_token}`}
+                          target="_blank"
+                          style={{ color: "var(--foreground-faint)", display: "flex", alignItems: "center", padding: 4, borderRadius: "var(--radius-sm)", transition: "color 0.1s" }}
+                          onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "var(--accent)")}
+                          onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "var(--foreground-faint)")}
+                        >
+                          <ExternalLink size={13} />
+                        </a>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        )}
       </div>
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

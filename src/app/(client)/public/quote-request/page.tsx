@@ -268,7 +268,7 @@ export default function QuoteRequestPage() {
                 rows={4}
                 placeholder="Please outline the main features, objectives, and integrations you expect for the system..."
                 value={projectDesc}
-                onChange={(e) => setProjDesc(e.target.value)}
+                onChange={(e) => setProjectDesc(e.target.value)}
                 required
                 style={{ resize: "none" }}
               />

@@ -1,18 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { Search, ExternalLink } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Search, ExternalLink, Loader2, Users } from "lucide-react";
 import type { Client } from "@/types";
 import { formatDate, initials } from "@/utils";
-
-const MOCK_CLIENTS: Client[] = [
-  { $id: "c1", name: "TechFlow Inc.",   legal_name: "TechFlow Incorporated", email: "contact@techflow.io",  phone: "+1 555 0101", website: "techflow.io",        status: "active",   $createdAt: "2025-03-15T00:00:00Z", $updatedAt: "2026-07-01T00:00:00Z" },
-  { $id: "c2", name: "BuildSmart Ltd.", email: "hello@buildsmart.co",        phone: "+1 555 0202",          website: "buildsmart.co",     status: "active",   $createdAt: "2025-06-10T00:00:00Z", $updatedAt: "2026-06-15T00:00:00Z" },
-  { $id: "c3", name: "DataSync Corp.",  email: "ops@datasync.com",                                          website: "datasync.com",      status: "active",   $createdAt: "2025-08-22T00:00:00Z", $updatedAt: "2026-07-05T00:00:00Z" },
-  { $id: "c4", name: "CloudNova",       email: "info@cloudnova.io",                                         website: "cloudnova.io",      status: "lead",     $createdAt: "2026-06-01T00:00:00Z", $updatedAt: "2026-07-01T00:00:00Z" },
-  { $id: "c5", name: "Nexus Systems",   email: "hello@nexus.systems",                                       website: "nexus.systems",     status: "inactive", $createdAt: "2024-11-03T00:00:00Z", $updatedAt: "2025-12-01T00:00:00Z" },
-  { $id: "c6", name: "Orion Digital",   email: "dev@oriondigital.net",                                      website: "oriondigital.net",  status: "lead",     $createdAt: "2026-07-10T00:00:00Z", $updatedAt: "2026-07-10T00:00:00Z" },
-];
+import { useRouter } from "next/navigation";
+import { getClients } from "@/services/crm";
+import Link from "next/link";
 
 const statusBadge: Record<string, string> = {
   active:   "badge-active",
@@ -26,14 +20,29 @@ const avatarColors: Record<string, { bg: string; color: string }> = {
   inactive: { bg: "#F5F5F5", color: "#9CA3AF" },
 };
 
-import { useRouter } from "next/navigation";
-
 export function ClientsTable() {
   const router = useRouter();
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | Client["status"]>("all");
 
-  const filtered = MOCK_CLIENTS.filter((c) => {
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      try {
+        const data = await getClients();
+        setClients(data);
+      } catch (err) {
+        console.error("[ClientsTable] load error:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  const filtered = clients.filter((c) => {
     const q = search.toLowerCase();
     const matchSearch = c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q);
     const matchFilter = filter === "all" || c.status === filter;
@@ -44,7 +53,6 @@ export function ClientsTable() {
     <div>
       {/* ─── Toolbar ─── */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-
         {/* Search */}
         <div style={{ position: "relative", width: 280 }}>
           <Search size={13} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "var(--foreground-faint)", pointerEvents: "none" }} />
@@ -85,131 +93,115 @@ export function ClientsTable() {
           ))}
         </div>
 
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
+        <div style={{ marginLeft: "auto" }}>
           <span style={{ fontSize: 12, color: "var(--foreground-muted)" }}>
-            {filtered.length} client{filtered.length !== 1 ? "s" : ""}
+            {loading ? "Loading..." : `${filtered.length} client${filtered.length !== 1 ? "s" : ""}`}
           </span>
         </div>
       </div>
 
       {/* ─── Table ─── */}
-      <div
-        style={{
-          background: "var(--background-alt)",
-          border: "1px solid var(--border)",
-          borderRadius: "var(--radius-lg)",
-          overflow: "hidden",
-          boxShadow: "var(--shadow-xs)",
-        }}
-      >
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Client</th>
-              <th>Email</th>
-              <th>Phone</th>
-              <th>Status</th>
-              <th>Added</th>
-              <th style={{ width: 40 }} />
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 ? (
+      <div style={{ background: "var(--background-alt)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", overflow: "hidden", boxShadow: "var(--shadow-xs)" }}>
+        {loading ? (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "60px 20px", gap: 10, color: "var(--foreground-muted)" }}>
+            <Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} />
+            <span style={{ fontSize: 13 }}>Loading clients from database...</span>
+          </div>
+        ) : (
+          <table className="data-table">
+            <thead>
               <tr>
-                <td colSpan={6} style={{ textAlign: "center", padding: "44px", color: "var(--foreground-muted)" }}>
-                  No clients match your search.
-                </td>
+                <th>Client</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Status</th>
+                <th>Added</th>
+                <th style={{ width: 60 }} />
               </tr>
-            ) : (
-              filtered.map((client) => {
-                const av = avatarColors[client.status] ?? avatarColors.inactive;
-                return (
-                  <tr
-                    key={client.$id}
-                    onClick={() => router.push(`/crm/${client.$id}`)}
-                    style={{ cursor: "pointer" }}
-                  >
-                    <td>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div
-                          style={{
-                            width: 30,
-                            height: 30,
-                            borderRadius: "var(--radius-md)",
-                            background: av.bg,
-                            border: "1px solid var(--border)",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: 11,
-                            fontWeight: 700,
-                            color: av.color,
-                            fontFamily: "var(--font-heading)",
-                            flexShrink: 0,
-                          }}
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: "center", padding: "60px 20px" }}>
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                      <Users size={32} style={{ color: "var(--foreground-faint)" }} />
+                      <p style={{ color: "var(--foreground-muted)", fontSize: 13, fontWeight: 500 }}>
+                        {clients.length === 0 ? "No clients yet. Add your first client!" : "No clients match your search."}
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((c) => {
+                  const av = avatarColors[c.status] || avatarColors["lead"];
+                  return (
+                    <tr
+                      key={c.$id}
+                      style={{ cursor: "pointer" }}
+                      onClick={() => router.push(`/crm/${c.$id}`)}
+                    >
+                      <td>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                          <div
+                            style={{
+                              width: 32,
+                              height: 32,
+                              borderRadius: "var(--radius-md)",
+                              background: av.bg,
+                              color: av.color,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: 11,
+                              fontWeight: 700,
+                              fontFamily: "var(--font-heading)",
+                              flexShrink: 0,
+                            }}
+                          >
+                            {initials(c.name)}
+                          </div>
+                          <div>
+                            <p style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)", fontFamily: "var(--font-heading)" }}>{c.name}</p>
+                            {c.website && (
+                              <p style={{ fontSize: 11, color: "var(--foreground-muted)" }}>{c.website}</p>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td>
+                        <span style={{ fontSize: 12, color: "var(--foreground-2)" }}>{c.email}</span>
+                      </td>
+                      <td>
+                        <span style={{ fontSize: 12, color: "var(--foreground-muted)" }}>{c.phone || "—"}</span>
+                      </td>
+                      <td>
+                        <span className={`badge ${statusBadge[c.status] || "badge-lead"}`} style={{ textTransform: "capitalize" }}>
+                          {c.status}
+                        </span>
+                      </td>
+                      <td>
+                        <span suppressHydrationWarning style={{ fontSize: 12, color: "var(--foreground-muted)" }}>{formatDate(c.$createdAt)}</span>
+                      </td>
+                      <td>
+                        <Link
+                          href={`/crm/${c.$id}`}
+                          onClick={(e) => e.stopPropagation()}
+                          style={{ color: "var(--foreground-faint)", display: "flex", alignItems: "center", padding: 4, borderRadius: "var(--radius-sm)" }}
+                          onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "var(--accent)")}
+                          onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "var(--foreground-faint)")}
                         >
-                          {initials(client.name)}
-                        </div>
-                        <div>
-                          <p style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)", fontFamily: "var(--font-heading)" }}>
-                            {client.name}
-                          </p>
-                          {client.website && (
-                            <p style={{ fontSize: 11, color: "var(--foreground-muted)" }}>{client.website}</p>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                      <a
-                        href={`mailto:${client.email}`}
-                        style={{ color: "var(--foreground-muted)", fontSize: 12, textDecoration: "none" }}
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {client.email}
-                      </a>
-                    </td>
-                    <td>
-                      <span style={{ color: "var(--foreground-muted)", fontSize: 12 }}>
-                        {client.phone ?? "—"}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`badge ${statusBadge[client.status]}`}>
-                        {client.status}
-                      </span>
-                    </td>
-                    <td>
-                      <span style={{ color: "var(--foreground-muted)", fontSize: 12 }}>
-                        {formatDate(client.$createdAt)}
-                      </span>
-                    </td>
-                    <td>
-                      <button
-                        style={{
-                          background: "none",
-                          border: "none",
-                          color: "var(--foreground-faint)",
-                          cursor: "pointer",
-                          padding: "4px",
-                          borderRadius: "var(--radius-sm)",
-                          display: "flex",
-                          alignItems: "center",
-                          transition: "color 0.1s",
-                        }}
-                        onMouseEnter={(e) => (e.currentTarget.style.color = "var(--accent)")}
-                        onMouseLeave={(e) => (e.currentTarget.style.color = "var(--foreground-faint)")}
-                      >
-                        <ExternalLink size={13} />
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+                          <ExternalLink size={13} />
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        )}
       </div>
+      <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }
