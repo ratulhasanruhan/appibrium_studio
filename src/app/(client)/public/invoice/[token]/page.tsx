@@ -90,7 +90,7 @@ export default function PublicInvoicePortal() {
       {/* ─── Header ─── */}
       <header className="inv-header no-print">
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <img src="/branding_assets/logos/lockup/lockup_w4_light.svg" alt="Appibrium" style={{ height: 26, width: "auto" }} />
+          <img src="/branding_assets/logos/lockup/lockup_w4_dark.svg" alt="Appibrium" style={{ height: 26, width: "auto" }} />
           <div style={{ width: 1, height: 18, background: "rgba(255,255,255,0.25)" }} />
           <span style={{ fontFamily: "'Jost', system-ui, sans-serif", fontWeight: 800, fontSize: 13, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.9)" }}>Studio</span>
         </div>
@@ -107,15 +107,10 @@ export default function PublicInvoicePortal() {
         <div className="invoice-doc">
 
           {/* PDF-only elements */}
-          <div className="pdf-watermark">APPIBRIUM</div>
-          <div className="pdf-header">
-            <span>APPIBRIUM TECHNOLOGY CO. · INVOICE</span>
-            <span>{invoiceRef}</span>
+          <div className="pdf-watermark">
+            <img src="/branding_assets/logos/icon/icon_mint.svg" alt="" />
           </div>
-          <div className="pdf-footer">
-            <span>© {new Date().getFullYear()} Appibrium Technology Co. · Confidential</span>
-            <span>Page 1 of 1</span>
-          </div>
+
 
           {/* ─── Document Header ─── */}
           <div className="inv-doc-header">
@@ -123,9 +118,9 @@ export default function PublicInvoicePortal() {
               <div className="inv-badge">INVOICE</div>
               <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: "#6B8F7C", marginTop: 6 }}>{invoiceRef}</p>
             </div>
-            <div style={{ textAlign: "right" }}>
-              <img src="/branding_assets/logos/wordmark/wordmark_dark.svg" alt="Appibrium" style={{ height: 48, width: "auto", display: "block", marginLeft: "auto", marginBottom: 6 }} />
-              <p style={{ fontSize: 11, color: "#6B8F7C" }}>Appibrium Technology Co.</p>
+            <div style={{ textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+              <img src="/branding_assets/logos/lockup/appibrium_w4_light.png" alt="Appibrium" style={{ height: 48, width: "auto", display: "block", marginLeft: "auto", marginRight: 0, marginBottom: 6 }} />
+              <p style={{ fontSize: 11, color: "#0D2317", fontWeight: 700 }}>Appibrium Technology Co.</p>
               <p style={{ fontSize: 11, color: "#6B8F7C" }}>23/A Shukrabad, Dhaka, Bangladesh</p>
             </div>
           </div>
@@ -301,7 +296,7 @@ export default function PublicInvoicePortal() {
         }
 
         .inv-doc-header {
-          display: flex; align-items: flex-start; justify-content: space-between;
+          display: flex; align-items: center; justify-content: space-between;
           padding: 32px 40px 24px;
           background: #FAFCFA; border-bottom: 1px solid #E8F2EC;
         }
@@ -320,10 +315,17 @@ export default function PublicInvoicePortal() {
         .inv-strip {
           display: grid; grid-template-columns: repeat(4, 1fr);
           border-bottom: 1px solid #E8F2EC;
+          padding: 0 40px;
         }
         .inv-strip-item {
-          padding: 16px 24px; border-right: 1px solid #E8F2EC;
+          padding: 16px 0; border-right: 1px solid #E8F2EC;
           display: flex; flex-direction: column; gap: 3px;
+        }
+        .inv-strip-item:not(:last-child) {
+          padding-right: 16px;
+        }
+        .inv-strip-item:not(:first-child) {
+          padding-left: 16px;
         }
         .inv-strip-item:last-child { border-right: none; }
         .strip-label { font-size: 10px; font-weight: 600; color: #6B8F7C; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 2px; }
@@ -338,6 +340,8 @@ export default function PublicInvoicePortal() {
           border-bottom: 2px solid #D6EDE1;
         }
         .inv-table td { padding: 11px 12px; border-bottom: 1px solid #F0FAF5; font-size: 13px; }
+        .inv-table th:first-child, .inv-table td:first-child { padding-left: 0; }
+        .inv-table th:last-child, .inv-table td:last-child { padding-right: 0; }
         .inv-table tbody tr:last-child td { border-bottom: none; }
         .inv-table tbody tr:hover td { background: #F9FFFC; }
 
@@ -374,39 +378,23 @@ export default function PublicInvoicePortal() {
           .no-print { display: none !important; }
           .inv-main { padding: 0 !important; }
           .invoice-doc { max-width: 100%; border-radius: 0; box-shadow: none; border: none; }
-          .inv-doc-footer { display: none; }
 
           .pdf-watermark {
-            display: block !important; position: fixed;
+            display: flex !important; position: fixed;
             top: 50%; left: 50%;
-            transform: translate(-50%, -50%) rotate(-42deg);
-            font-size: 90px; font-weight: 900;
-            font-family: 'Jost', sans-serif;
-            color: rgba(0, 184, 114, 0.05) !important;
-            text-transform: uppercase; letter-spacing: 0.2em;
-            pointer-events: none; z-index: 0; white-space: nowrap;
+            transform: translate(-50%, -50%);
+            pointer-events: none; z-index: 0;
+            opacity: 0.035;
             -webkit-print-color-adjust: exact; print-color-adjust: exact;
+            justify-content: center;
+            align-items: center;
+          }
+          .pdf-watermark img {
+            width: 320px;
+            height: auto;
           }
 
-          .pdf-header {
-            display: flex !important; position: fixed;
-            top: 0; left: 0; right: 0; height: 26px;
-            background: #0D2317;
-            align-items: center; justify-content: space-between;
-            padding: 0 16px; font-size: 8px; color: rgba(255,255,255,0.7);
-            font-family: 'Jost', sans-serif; letter-spacing: 0.1em;
-            -webkit-print-color-adjust: exact; print-color-adjust: exact;
-          }
 
-          .pdf-footer {
-            display: flex !important; position: fixed;
-            bottom: 0; left: 0; right: 0; height: 24px;
-            border-top: 1px solid rgba(0, 184, 114, 0.2);
-            align-items: center; justify-content: space-between;
-            padding: 0 16px; font-size: 8px; color: #6B8F7C;
-            font-family: 'Jost', sans-serif; letter-spacing: 0.08em;
-            -webkit-print-color-adjust: exact; print-color-adjust: exact;
-          }
         }
       `}</style>
     </div>

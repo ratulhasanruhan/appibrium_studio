@@ -1,12 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { FolderKanban, Users, Calendar, DollarSign, ArrowLeft, Loader2, Check, AlertCircle, ExternalLink, Briefcase } from "lucide-react";
+import { FolderKanban, Users, Calendar, DollarSign, ArrowLeft, Loader2, Check, AlertCircle, ExternalLink, Briefcase, FileText } from "lucide-react";
 import Link from "next/link";
 import { getProject, updateProject } from "@/services/projects";
 import { getClient } from "@/services/crm";
-import type { Project, Client } from "@/types";
+import type { Project, Client, Invoice } from "@/types";
 import { formatDate, formatCurrency } from "@/utils";
+import { databases, DB_ID, COLLECTIONS, Query } from "@/lib/appwrite/client";
 
 interface ProjectDetailProps {
   id: string;
@@ -23,6 +24,7 @@ const STATUS_BADGE: Record<string, string> = {
 export function ProjectDetail({ id }: ProjectDetailProps) {
   const [project, setProject] = useState<Project | null>(null);
   const [client, setClient]   = useState<Client | null>(null);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Status Change state
@@ -37,8 +39,12 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
       if (proj) {
         setProject(proj);
         setStatus(proj.status);
-        const cl = await getClient(proj.client_id);
+        const [cl, invoicesRes] = await Promise.all([
+          getClient(proj.client_id),
+          databases.listDocuments(DB_ID, COLLECTIONS.INVOICES, [Query.equal("project_id", id)]),
+        ]);
         setClient(cl);
+        setInvoices(invoicesRes.documents as unknown as Invoice[]);
       }
       setLoading(false);
     }
@@ -185,6 +191,35 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
               </div>
             ) : (
               <p style={{ fontSize: 12, color: "var(--foreground-muted)" }}>No client record linked.</p>
+            )}
+          </div>
+
+          {/* Linked Invoices */}
+          <div className="card">
+            <h3 style={{ fontSize: 12, fontWeight: 700, fontFamily: "var(--font-heading)", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
+              <DollarSign size={14} style={{ color: "var(--accent)" }} /> Project Invoices
+            </h3>
+            {invoices.length > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {invoices.map((inv) => {
+                  const ref = `APP-INV-${new Date(inv.$createdAt).getFullYear()}-${inv.$id.slice(-4).toUpperCase()}`;
+                  return (
+                    <div key={inv.$id} style={{ padding: 10, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", display: "flex", flexDirection: "column", gap: 6 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                        <Link href={`/invoices/${inv.$id}`} style={{ fontSize: 12, fontWeight: 600, color: "var(--foreground)", textDecoration: "none" }} className="hover-link">
+                          {inv.title}
+                        </Link>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 2 }}>
+                        <span style={{ fontSize: 10, color: "var(--foreground-muted)", fontFamily: "var(--font-mono, monospace)" }}>{ref}</span>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--accent)" }}>{formatCurrency(inv.total, inv.currency)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p style={{ fontSize: 12, color: "var(--foreground-muted)" }}>No invoices generated for this project.</p>
             )}
           </div>
 

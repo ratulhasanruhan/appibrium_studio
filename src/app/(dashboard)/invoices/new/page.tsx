@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { getClients } from "@/services/crm";
 import { getProjects } from "@/services/projects";
 import { createInvoice, createInvoiceItem } from "@/services/invoices";
+import { sendInvoiceNotification } from "@/services/email";
 import { databases, DB_ID, COLLECTIONS, Query } from "@/lib/appwrite/client";
 
 interface LineItem extends Omit<InvoiceItem, "$id" | "invoice_id"> {
@@ -170,6 +171,21 @@ export default function NewInvoicePage() {
       )
     );
 
+    try {
+      const selectedCli = clients.find((c) => c.$id === clientId);
+      if (selectedCli && selectedCli.email) {
+        await sendInvoiceNotification(
+          selectedCli.email,
+          selectedCli.name,
+          title,
+          formatCurrency(total, currency),
+          publicToken
+        );
+      }
+    } catch (emailErr) {
+      console.error("Failed to send invoice notification email:", emailErr);
+    }
+
     setSaving(false);
     setSaveStatus("saved");
     setTimeout(() => router.push("/invoices"), 800);
@@ -255,7 +271,14 @@ export default function NewInvoicePage() {
                     id="invoice-project"
                     className="input-base"
                     value={projectId}
-                    onChange={(e) => setProjectId(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setProjectId(val);
+                      const selected = projects.find((p) => p.$id === val);
+                      if (selected) {
+                        setTitle(selected.name);
+                      }
+                    }}
                     disabled={!clientId}
                   >
                     <option value="">No Project Link</option>

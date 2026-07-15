@@ -179,7 +179,7 @@ function PublicProposalPortalContent() {
       {/* ─── Header Bar ─── */}
       <header className="portal-header no-print">
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <img src="/branding_assets/logos/lockup/lockup_w4_light.svg" alt="Appibrium" style={{ height: 26, width: "auto" }} />
+          <img src="/branding_assets/logos/lockup/lockup_w4_dark.svg" alt="Appibrium" style={{ height: 26, width: "auto" }} />
           <div style={{ width: 1, height: 18, background: "rgba(255,255,255,0.25)" }} />
           <span style={{ fontFamily: "'Jost', system-ui, sans-serif", fontWeight: 800, fontSize: 13, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.9)" }}>
             Studio
@@ -231,11 +231,7 @@ function PublicProposalPortalContent() {
       <main className="portal-main">
         <div className="proposal-doc">
 
-          {/* PDF-only header */}
-          <div className="pdf-header">
-            <span>APPIBRIUM TECHNOLOGY CO. · CONFIDENTIAL</span>
-            <span>{proposalRef}</span>
-          </div>
+
 
           {/* Watermark */}
           <div className="pdf-watermark">
@@ -245,7 +241,7 @@ function PublicProposalPortalContent() {
           {/* Document Header */}
           <div className="doc-header">
             <div>
-              <img src="/branding_assets/logos/wordmark/wordmark_dark.svg" alt="Appibrium" className="doc-logo" />
+              <img src="/branding_assets/logos/lockup/appibrium_w4_light.png" alt="Appibrium" className="doc-logo" style={{ height: 48, width: "auto" }} />
             </div>
             <div style={{ textAlign: "right" }}>
               <p style={{ fontSize: 12, fontWeight: 700, color: "#0D2317", fontFamily: "'Jost', sans-serif" }}>Appibrium Technology Co.</p>
@@ -373,11 +369,7 @@ function PublicProposalPortalContent() {
             <span>Confidential Business Document</span>
           </div>
 
-          {/* PDF-only footer */}
-          <div className="pdf-footer">
-            <span>© {new Date().getFullYear()} Appibrium Technology Co. · Confidential</span>
-            <span>Page 1 of 1</span>
-          </div>
+
         </div>
       </main>
 
@@ -422,7 +414,7 @@ function PublicProposalPortalContent() {
 
         .doc-header {
           display: flex;
-          align-items: flex-start;
+          align-items: center;
           justify-content: space-between;
           padding: 32px 40px 24px;
           background: #FAFCFA;
@@ -547,8 +539,6 @@ function PublicProposalPortalContent() {
             border: none;
           }
 
-          .doc-footer { display: none; }
-
           .pdf-watermark {
             display: flex !important;
             position: fixed;
@@ -569,39 +559,7 @@ function PublicProposalPortalContent() {
             height: auto;
           }
 
-          .pdf-header {
-            display: flex !important;
-            position: fixed;
-            top: 0; left: 0; right: 0;
-            height: 26px;
-            background: #0D2317;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 16px;
-            font-size: 8px;
-            color: rgba(255,255,255,0.7);
-            font-family: 'Jost', sans-serif;
-            letter-spacing: 0.1em;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-          }
 
-          .pdf-footer {
-            display: flex !important;
-            position: fixed;
-            bottom: 0; left: 0; right: 0;
-            height: 24px;
-            border-top: 1px solid rgba(0, 184, 114, 0.2);
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 16px;
-            font-size: 8px;
-            color: #6B8F7C;
-            font-family: 'Jost', sans-serif;
-            letter-spacing: 0.08em;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-          }
 
           h1, h2, h3, h4 {
             page-break-after: avoid;

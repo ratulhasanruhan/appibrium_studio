@@ -262,13 +262,20 @@ async function run() {
 
   // 3. Create Storage Bucket
   console.log(`\n🗄️ Checking Storage Bucket "${bucketId}"...`);
+  const bucketPermissions = [
+    Permission.read(Role.any()),
+    Permission.create(Role.any()),
+    Permission.update(Role.any()),
+    Permission.delete(Role.any())
+  ];
   try {
     await storage.getBucket(bucketId);
-    console.log(`Storage Bucket "${bucketId}" already exists.`);
+    console.log(`Storage Bucket "${bucketId}" already exists. Updating permissions...`);
+    await storage.updateBucket(bucketId, bucketId, bucketPermissions);
   } catch (error) {
     console.log(`Creating Storage Bucket "${bucketId}"...`);
     try {
-      await storage.createBucket(bucketId, bucketId);
+      await storage.createBucket(bucketId, bucketId, bucketPermissions);
       console.log(`Storage Bucket "${bucketId}" created successfully.`);
     } catch (bucketErr) {
       console.error("Failed to create storage bucket:", bucketErr);

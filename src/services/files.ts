@@ -25,16 +25,17 @@ export async function uploadFile(
     const uploadRes = await storage.createFile(BUCKETS.FILES, fileId, file);
 
     // 2. Insert metadata document
-    const metadata = {
+    const metadata: Record<string, any> = {
       name: file.name,
       mime_type: file.type,
       size_bytes: file.size,
       category: "document",
       version: 1,
       uploaded_by: "Admin",
-      client_id: clientId || undefined,
-      project_id: projectId || undefined,
     };
+
+    if (clientId) metadata.client_id = clientId;
+    if (projectId) metadata.project_id = projectId;
 
     const docRes = await databases.createDocument(DB_ID, COLLECTIONS.FILES_METADATA, fileId, metadata);
     return { success: true, data: docRes as unknown as FileMetadata };

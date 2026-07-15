@@ -18,6 +18,7 @@ import {
 import Link from "next/link";
 import { getClient, getClients } from "@/services/crm";
 import { createProposal, getProposal, updateProposal } from "@/services/proposals";
+import { sendProposalNotification } from "@/services/email";
 import { sendProposalSMS } from "@/services/sms";
 import type { Client, Proposal } from "@/types";
 import { fmt, formatDate } from "@/utils";

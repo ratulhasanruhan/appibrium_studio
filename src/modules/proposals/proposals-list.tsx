@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, FileText, ExternalLink, Send, Clock, Loader2 } from "lucide-react";
+import { Search, FileText, ExternalLink, Send, Clock, Loader2, Trash2 } from "lucide-react";
 import type { Proposal, Client } from "@/types";
 import { formatRelativeTime } from "@/utils";
 import Link from "next/link";
-import { getProposals } from "@/services/proposals";
+import { getProposals, deleteProposal } from "@/services/proposals";
 import { getClients } from "@/services/crm";
 import { account, databases, DB_ID, COLLECTIONS, Query } from "@/lib/appwrite/client";
 
@@ -81,6 +81,16 @@ export function ProposalsList() {
     }
     load();
   }, []);
+
+  async function handleDelete(id: string, title: string) {
+    if (!confirm(`Are you sure you want to delete proposal "${title}"?`)) return;
+    const res = await deleteProposal(id);
+    if (res.success) {
+      setProposals(prev => prev.filter(p => p.$id !== id));
+    } else {
+      alert("Failed to delete proposal: " + res.error);
+    }
+  }
 
   const filtered = proposals.filter((p) => {
     const q = search.toLowerCase();
@@ -197,12 +207,21 @@ export function ProposalsList() {
                     <td>
                       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                         {isAdmin && (
-                          <Link
-                            href={`/proposals/${p.$id}/edit`}
-                            style={{ fontSize: 11, color: "var(--accent)", textDecoration: "none", padding: "4px 8px", borderRadius: "var(--radius-sm)", background: "var(--accent-subtle)", border: "1px solid rgba(0,184,114,0.15)", fontWeight: 500, fontFamily: "var(--font-body)" }}
-                          >
-                            Edit
-                          </Link>
+                          <>
+                            <Link
+                              href={`/proposals/${p.$id}/edit`}
+                              style={{ fontSize: 11, color: "var(--accent)", textDecoration: "none", padding: "4px 8px", borderRadius: "var(--radius-sm)", background: "var(--accent-subtle)", border: "1px solid rgba(0,184,114,0.15)", fontWeight: 500, fontFamily: "var(--font-body)" }}
+                            >
+                              Edit
+                            </Link>
+                            <button
+                              onClick={() => handleDelete(p.$id, p.title)}
+                              style={{ background: "none", border: "none", color: "var(--foreground-faint)", padding: 4, cursor: "pointer", display: "flex", alignItems: "center" }}
+                              title="Delete"
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </>
                         )}
                         <a
                           href={`/public/proposal/${p.public_token}`}

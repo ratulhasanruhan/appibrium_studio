@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, Receipt, ExternalLink, MessageSquare, Loader2 } from "lucide-react";
+import { Search, Receipt, ExternalLink, MessageSquare, Loader2, Trash2 } from "lucide-react";
 import type { Invoice, Client } from "@/types";
 import { formatDate, formatCurrency } from "@/utils";
 import Link from "next/link";
-import { getInvoices } from "@/services/invoices";
+import { getInvoices, deleteInvoice } from "@/services/invoices";
 import { getClients } from "@/services/crm";
+import { sendInvoiceSMS } from "@/services/sms";
 import { account, databases, DB_ID, COLLECTIONS, Query } from "@/lib/appwrite/client";
 
 type InvoiceWithClient = Invoice & { client_name: string; client_phone?: string };
@@ -72,6 +73,37 @@ export function InvoiceList() {
     }
     load();
   }, []);
+
+  async function handleSendSMS(inv: InvoiceWithClient) {
+    if (!inv.client_phone) return;
+    try {
+      const ref = `APP-INV-${new Date(inv.$createdAt).getFullYear()}-${inv.$id.slice(-4).toUpperCase()}`;
+      const res = await sendInvoiceSMS(
+        inv.client_phone,
+        ref,
+        inv.public_token,
+        inv.client_name,
+        formatCurrency(inv.total, inv.currency)
+      );
+      if (res.success) {
+        alert(`SMS sent successfully to ${inv.client_name} (${inv.client_phone})!`);
+      } else {
+        alert("Failed to send SMS: " + res.error);
+      }
+    } catch (err: any) {
+      alert("Error sending SMS: " + err.message);
+    }
+  }
+
+  async function handleDelete(id: string, ref: string) {
+    if (!confirm(`Are you sure you want to delete invoice "${ref}"?`)) return;
+    const res = await deleteInvoice(id);
+    if (res.success) {
+      setInvoices(prev => prev.filter(inv => inv.$id !== id));
+    } else {
+      alert("Failed to delete invoice: " + res.error);
+    }
+  }
 
   const filtered = invoices.filter((inv) => {
     const q = search.toLowerCase();
@@ -200,12 +232,21 @@ export function InvoiceList() {
                       </span>
                     </td>
                     <td>
-                      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                         <Link href={`/invoices/${inv.$id}`} style={{ fontSize: 11, color: "var(--accent)", textDecoration: "none", padding: "4px 8px", borderRadius: "var(--radius-sm)", background: "var(--accent-subtle)", border: "1px solid rgba(0,184,114,0.15)", fontWeight: 500, fontFamily: "var(--font-body)" }}>
                           View
                         </Link>
+                        {isAdmin && (
+                          <button
+                            onClick={() => handleDelete(inv.$id, `APP-INV-${new Date(inv.$createdAt).getFullYear()}-${inv.$id.slice(-4).toUpperCase()}`)}
+                            style={{ background: "none", border: "none", color: "var(--foreground-faint)", padding: 4, cursor: "pointer", display: "flex", alignItems: "center" }}
+                            title="Delete"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        )}
                         {isAdmin && inv.client_phone && (
-                          <button title="Send SMS" style={{ color: "var(--foreground-faint)", display: "flex", alignItems: "center", padding: 4, borderRadius: "var(--radius-sm)", background: "none", border: "none", cursor: "pointer", transition: "color 0.1s" }} onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "var(--accent)")} onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "var(--foreground-faint)")}>
+                          <button onClick={() => handleSendSMS(inv)} title="Send SMS" style={{ color: "var(--foreground-faint)", display: "flex", alignItems: "center", padding: 4, borderRadius: "var(--radius-sm)", background: "none", border: "none", cursor: "pointer", transition: "color 0.1s" }} onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.color = "var(--accent)")} onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.color = "var(--foreground-faint)")}>
                             <MessageSquare size={13} />
                           </button>
                         )}
