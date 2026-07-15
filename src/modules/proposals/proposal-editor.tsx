@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { getClient, getClients } from "@/services/crm";
-import { createProposal } from "@/services/proposals";
+import { createProposal, getProposal, updateProposal } from "@/services/proposals";
 import { sendProposalSMS } from "@/services/sms";
 import type { Client, Proposal } from "@/types";
 import { fmt, formatDate } from "@/utils";
@@ -36,6 +36,7 @@ export function ProposalEditor({ id }: ProposalEditorProps) {
   const [saving, setSaving] = useState(false);
   const [smsSending, setSmsSending] = useState(false);
   const [smsStatus, setSmsStatus] = useState("");
+  const [publicToken, setPublicToken] = useState("");
 
   // Template Generator state
   const [showTemplates, setShowTemplates] = useState(false);
@@ -84,12 +85,14 @@ export function ProposalEditor({ id }: ProposalEditorProps) {
 <h2>1. Executive Summary</h2>
 <p>${projDesc}. By leveraging modern software engineering practices, we will deliver a scalable, secure, and visually stunning web application tailored specifically to your organizational workflows.</p>
 
+
 <h2>2. Core Technical Architecture</h2>
 <p>The platform will be engineered using state-of-the-art web technologies chosen for peak performance, security, and developer velocity:</p>
 <ul>
   <li><strong>Frontend & Client Interface</strong>: Built with <strong>${projTech}</strong> to achieve seamless page transitions, fast loading speeds, and responsive behaviors.</li>
   <li><strong>Backend Services</strong>: Appwrite Cloud powers the secure database collection schema, file storage bucket, and user session authentication.</li>
 </ul>
+
 
 <h2>3. Project Scope & Key Deliverables</h2>
 <ul>
@@ -98,8 +101,10 @@ export function ProposalEditor({ id }: ProposalEditorProps) {
   <li><strong>Phase 3: Security & Verification Testing</strong> — Implement client authorization guards, audit checks, and perform staging deployments.</li>
 </ul>
 
+
 <h2>4. Timeline & Deliverables</h2>
 <p>The overall project timeline is estimated to span <strong>${projDuration}</strong>. Delivery will be structured into bi-weekly milestones with live previews.</p>
+
 
 <h2>5. Commercial Terms & Pricing</h2>
 <p>The total investment for the complete software engineering lifecycle is structured as follows:</p>
@@ -107,41 +112,41 @@ export function ProposalEditor({ id }: ProposalEditorProps) {
   <li><strong>Total Project Budget</strong>: <strong>${projAmount} BDT</strong></li>
   <li><strong>Payment Schedule</strong>:
     <ul>
-      <li>40% Advance initiation deposit.</li>
-      <li>40% Mid-milestone prototype delivery.</li>
-      <li>20% Final verification and deployment handover.</li>
+      <li>20% Advance initiation deposit.</li>
+      <li>30% Mid-milestone prototype delivery.</li>
+      <li>50% Final verification and deployment handover.</li>
     </ul>
   </li>
 </ul>
     ` : `
 <h2>1. Executive Summary</h2>
 <p>${projDesc}. We will build a native-feeling mobile application providing a premium, fluid user interface and highly optimised offline synchronization behaviors.</p>
-
+ 
 <h2>2. Mobile Application Architecture</h2>
 <p>The application will be engineered using modern cross-platform patterns for native execution across iOS and Android systems:</p>
 <ul>
   <li><strong>App Framework</strong>: Built using <strong>${projTech}</strong> for smooth micro-animations and peak native performance.</li>
   <li><strong>Cloud Sync Backend</strong>: Powered by Appwrite Databases and storage services.</li>
 </ul>
-
+ 
 <h2>3. Project Scope & Milestones</h2>
 <ul>
   <li><strong>Phase 1: UI/UX Wireframing & Appwrite Client Integration</strong> — Custom screen designs, authentication session setup, and collections initialization.</li>
   <li><strong>Phase 2: Feature Development & Push Notifications</strong> — Interactive client workspace screens, background notifications integration, and payment details integration.</li>
   <li><strong>Phase 3: App Store Deployment & Handover</strong> — App Store (iOS) and Google Play Store (Android) release preparation.</li>
 </ul>
-
+ 
 <h2>4. Timeline & Milestones</h2>
 <p>The project lifecycle will span a duration of <strong>${projDuration}</strong> from initial kickoff to deployment.</p>
-
+ 
 <h2>5. Project Budget & Pricing</h2>
 <ul>
   <li><strong>Total Mobile App Budget</strong>: <strong>${projAmount} BDT</strong></li>
   <li><strong>Milestone Payments</strong>:
     <ul>
-      <li>50% Advance initiation deposit.</li>
+      <li>20% Advance initiation deposit.</li>
       <li>30% Beta release testing preview.</li>
-      <li>20% Store publication and final approval.</li>
+      <li>50% Store publication and final approval.</li>
     </ul>
   </li>
 </ul>
@@ -159,27 +164,60 @@ export function ProposalEditor({ id }: ProposalEditorProps) {
     loadClients();
   }, []);
 
+  useEffect(() => {
+    if (!id) return;
+    const proposalId = id;
+    async function loadProposal() {
+      const p = await getProposal(proposalId);
+      if (p) {
+        setTitle(p.title);
+        setSelectedClientId(p.client_id);
+        setContentHtml(p.content_html || "");
+        setPublicToken(p.public_token);
+      }
+    }
+    loadProposal();
+  }, [id]);
+
   async function handleSave() {
     if (!selectedClientId || !title) {
       alert("Please select a client and enter a title.");
       return;
     }
     setSaving(true);
-    const token = "tok_" + Math.random().toString(36).substring(2, 10);
-    const result = await createProposal({
-      client_id: selectedClientId,
-      title,
-      content_html: contentHtml,
-      status: "draft",
-      public_token: token,
-      version: 1,
-      currency: "BDT",
-    });
-    setSaving(false);
-    if (result.success) {
-      alert("Proposal saved successfully!");
+    
+    if (id) {
+      // Edit mode: Update existing proposal
+      const result = await updateProposal(id, {
+        client_id: selectedClientId,
+        title,
+        content_html: contentHtml,
+      });
+      setSaving(false);
+      if (result.success) {
+        alert("Proposal updated successfully!");
+      } else {
+        alert("Error: " + result.error);
+      }
     } else {
-      alert("Error: " + result.error);
+      // Create mode
+      const token = "tok_" + Math.random().toString(36).substring(2, 10);
+      const result = await createProposal({
+        client_id: selectedClientId,
+        title,
+        content_html: contentHtml,
+        status: "draft",
+        public_token: token,
+        version: 1,
+        currency: "BDT",
+      });
+      setSaving(false);
+      if (result.success && result.data) {
+        setPublicToken(result.data.public_token);
+        alert("Proposal saved successfully!");
+      } else {
+        alert("Error: " + result.error);
+      }
     }
   }
 
@@ -196,11 +234,10 @@ export function ProposalEditor({ id }: ProposalEditorProps) {
 
     setSmsSending(true);
     setSmsStatus("Sending...");
-    // Simulate SMS gateway call
     const res = await sendProposalSMS(
       client.phone,
       id ?? "PROP-TEMP-1",
-      "preview_tok_99",
+      publicToken || "preview_tok_99",
       client.name
     );
     setSmsSending(false);
@@ -211,6 +248,14 @@ export function ProposalEditor({ id }: ProposalEditorProps) {
       setSmsStatus("Failed to send.");
       setTimeout(() => setSmsStatus(""), 3000);
     }
+  }
+
+  function handlePreview() {
+    if (!publicToken) {
+      alert("Please save the proposal first to enable live preview.");
+      return;
+    }
+    window.open(`/public/proposal/${publicToken}`, "_blank");
   }
 
   return (
@@ -364,7 +409,7 @@ export function ProposalEditor({ id }: ProposalEditorProps) {
               <MessageSquare size={13} />
               {smsStatus || "Send SMS"}
             </button>
-            <button className="btn btn-ghost" style={{ flex: 1, justifyContent: "center", fontSize: 12 }}>
+            <button className="btn btn-ghost" style={{ flex: 1, justifyContent: "center", fontSize: 12 }} onClick={handlePreview}>
               <Eye size={13} />
               Preview
             </button>

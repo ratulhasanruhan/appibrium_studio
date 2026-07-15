@@ -1,16 +1,18 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { Download, Check, X, ShieldAlert, Loader2, Printer } from "lucide-react";
-import { getProposalByToken } from "@/services/proposals";
+import React, { useState, useEffect, Suspense } from "react";
+import { Download, Check, X, ShieldAlert, Loader2, Printer, Lock, Mail, AlertCircle, CheckCircle2 } from "lucide-react";
+import { getProposalByToken, updateProposal } from "@/services/proposals";
 import { getClient } from "@/services/crm";
-import { updateProposal } from "@/services/proposals";
+import { createProject } from "@/services/projects";
 import type { Proposal, Client } from "@/types";
 import { formatDate } from "@/utils";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
+import { account } from "@/lib/appwrite/client";
 
-export default function PublicProposalPortal() {
+function PublicProposalPortalContent() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const token = params?.token as string;
 
   const [proposal, setProposal] = useState<Proposal | null>(null);
@@ -18,6 +20,48 @@ export default function PublicProposalPortal() {
   const [loading, setLoading]   = useState(true);
   const [signing, setSigning]   = useState(false);
   const [status, setStatus]     = useState<"review" | "accepted" | "rejected">("review");
+
+  // Auth States
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+  const [authStatus, setAuthStatus]   = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [authError, setAuthError]     = useState("");
+  const [verifyingSession, setVerifyingSession] = useState(false);
+
+  useEffect(() => {
+    const userId = searchParams?.get("userId");
+    const secret = searchParams?.get("secret");
+
+    async function checkAuth() {
+      setCheckingAuth(true);
+      if (userId && secret) {
+        setVerifyingSession(true);
+        try {
+          // Clear any conflicting active session
+          try {
+            await account.deleteSession("current");
+          } catch (_) {}
+          await account.updateMagicURLSession(userId, secret);
+          // Clean the query parameters from URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+        } catch (err) {
+          console.error("Magic link verification failed:", err);
+        } finally {
+          setVerifyingSession(false);
+        }
+      }
+
+      try {
+        const user = await account.get();
+        setCurrentUser(user);
+      } catch (_) {
+        setCurrentUser(null);
+      } finally {
+        setCheckingAuth(false);
+      }
+    }
+    checkAuth();
+  }, [searchParams]);
 
   useEffect(() => {
     async function load() {
@@ -44,6 +88,18 @@ export default function PublicProposalPortal() {
     });
     if (result.success) {
       setStatus("accepted");
+      try {
+        // Automatically create corresponding active project
+        await createProject({
+          name: proposal.title,
+          client_id: proposal.client_id,
+          description: `Project initialized automatically from accepted proposal "${proposal.title}".`,
+          status: "active",
+          currency: proposal.currency || "BDT",
+        });
+      } catch (err) {
+        console.error("Failed to automatically create project:", err);
+      }
     }
     setSigning(false);
   }
@@ -58,15 +114,46 @@ export default function PublicProposalPortal() {
     setSigning(false);
   }
 
+  async function handleSendMagicLink(e: React.FormEvent) {
+    e.preventDefault();
+    if (!client?.email) return;
+    setAuthStatus("sending");
+    setAuthError("");
+
+    try {
+      // 1. Verify client exists in backend database
+      const res = await fetch("/api/auth/magic-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: client.email }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Failed to send magic link.");
+      }
+
+      // 2. Create magic URL token client-side with exact redirect to current proposal page
+      const redirectUrl = window.location.href;
+      await account.createMagicURLToken("unique()", client.email, redirectUrl);
+      setAuthStatus("sent");
+    } catch (err: any) {
+      console.error("Magic link failed:", err);
+      setAuthStatus("error");
+      setAuthError(err.message || "Failed to send verification link.");
+    }
+  }
+
   function handlePrint() {
     window.print();
   }
 
-  if (loading) {
+  if (loading || verifyingSession) {
     return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "#F4FBF7", gap: 14 }}>
         <Loader2 size={28} style={{ color: "#00B872", animation: "spin 1s linear infinite" }} />
-        <p style={{ fontSize: 13, color: "#6B8F7C", fontFamily: "system-ui, sans-serif" }}>Loading proposal...</p>
+        <p style={{ fontSize: 13, color: "#6B8F7C", fontFamily: "system-ui, sans-serif" }}>
+          {verifyingSession ? "Verifying signature credentials..." : "Loading proposal..."}
+        </p>
         <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
       </div>
     );
@@ -84,12 +171,15 @@ export default function PublicProposalPortal() {
 
   const proposalRef = `APP-PROP-${new Date(proposal.$createdAt).getFullYear()}-${proposal.$id.slice(-4).toUpperCase()}`;
 
+  // Check client authorization status
+  const isAuthorized = currentUser && client && (currentUser.email === client.email);
+
   return (
     <div className="proposal-portal">
       {/* ─── Header Bar ─── */}
       <header className="portal-header no-print">
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <img src="/branding_assets/logos/lockup/lockup_w4_light.svg" alt="Appibrium" style={{ height: 26, width: "auto", filter: "brightness(0) invert(1)" }} />
+          <img src="/branding_assets/logos/lockup/lockup_w4_light.svg" alt="Appibrium" style={{ height: 26, width: "auto" }} />
           <div style={{ width: 1, height: 18, background: "rgba(255,255,255,0.25)" }} />
           <span style={{ fontFamily: "'Jost', system-ui, sans-serif", fontWeight: 800, fontSize: 13, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.9)" }}>
             Studio
@@ -104,6 +194,10 @@ export default function PublicProposalPortal() {
           ) : status === "rejected" ? (
             <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 14px", borderRadius: 99, background: "rgba(209,79,79,0.15)", border: "1px solid rgba(209,79,79,0.3)", color: "#FAA", fontSize: 12, fontWeight: 600 }}>
               <X size={12} /> Declined
+            </span>
+          ) : !isAuthorized ? (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, color: "rgba(255,255,255,0.6)", padding: "4px 10px", background: "rgba(255,255,255,0.05)", borderRadius: 6, border: "1px solid rgba(255,255,255,0.1)" }}>
+              <Lock size={12} style={{ color: "#E0A900" }} /> Authentication Required to Sign
             </span>
           ) : (
             <div style={{ display: "flex", gap: 8 }}>
@@ -144,12 +238,14 @@ export default function PublicProposalPortal() {
           </div>
 
           {/* Watermark */}
-          <div className="pdf-watermark">APPIBRIUM</div>
+          <div className="pdf-watermark">
+            <img src="/branding_assets/logos/icon/icon_mint.svg" alt="" />
+          </div>
 
           {/* Document Header */}
           <div className="doc-header">
             <div>
-              <img src="/branding_assets/logos/lockup/lockup_w4_light.svg" alt="Appibrium" className="doc-logo" />
+              <img src="/branding_assets/logos/wordmark/wordmark_dark.svg" alt="Appibrium" className="doc-logo" />
             </div>
             <div style={{ textAlign: "right" }}>
               <p style={{ fontSize: 12, fontWeight: 700, color: "#0D2317", fontFamily: "'Jost', sans-serif" }}>Appibrium Technology Co.</p>
@@ -201,6 +297,50 @@ export default function PublicProposalPortal() {
               `,
             }}
           />
+
+          {/* Inline Authentication box if not logged in & status is review */}
+          {status === "review" && !isAuthorized && (
+            <div className="no-print" style={{ margin: "0 40px 28px", padding: 24, background: "#FAF9F5", border: "1px solid #EEDFBE", borderRadius: 8 }}>
+              <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#F5ECD5", display: "flex", alignItems: "center", justifyContent: "center", color: "#B37D00", flexShrink: 0 }}>
+                  <Lock size={16} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <h3 style={{ fontSize: 14, fontWeight: 700, color: "#0D2317", fontFamily: "var(--font-heading)" }}>Review and Sign Securely</h3>
+                  <p style={{ fontSize: 12, color: "#6B8F7C", lineHeight: 1.5, marginTop: 4 }}>
+                    To protect document confidentiality, only the authorized recipient (<strong style={{ color: "#0D2317" }}>{client?.email}</strong>) can sign this proposal.
+                    Please log in via the instant Magic Link below to verify your identity.
+                  </p>
+
+                  {currentUser ? (
+                    <div style={{ marginTop: 12, padding: "8px 12px", background: "#FEF2F2", border: "1px solid #FAC5C5", borderRadius: 6, fontSize: 12, color: "#D14F4F", display: "flex", alignItems: "center", gap: 6 }}>
+                      <AlertCircle size={14} /> Currently logged in as: <strong>{currentUser.email}</strong>. Please switch accounts.
+                    </div>
+                  ) : null}
+
+                  {authStatus === "sent" ? (
+                    <div style={{ marginTop: 14, padding: "10px 14px", background: "#E6FAF3", border: "1px solid #B3E8D2", borderRadius: 6, display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#00965C" }}>
+                      <CheckCircle2 size={16} /> Magic Link sent! Please check your inbox at <strong>{client?.email}</strong>.
+                    </div>
+                  ) : (
+                    <form onSubmit={handleSendMagicLink} style={{ display: "flex", gap: 10, marginTop: 14, maxWidth: 420 }}>
+                      <div style={{ position: "relative", flex: 1 }}>
+                        <Mail size={14} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "#6B8F7C" }} />
+                        <input className="input-base" type="email" value={client?.email || ""} readOnly style={{ paddingLeft: 30, background: "#F0EFEB", color: "#6B8F7C", fontSize: 12, cursor: "not-allowed" }} />
+                      </div>
+                      <button type="submit" className="btn btn-primary" style={{ fontSize: 12, padding: "0 16px" }} disabled={authStatus === "sending"}>
+                        {authStatus === "sending" ? <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> : "Verify Identity"}
+                      </button>
+                    </form>
+                  )}
+
+                  {authStatus === "error" && (
+                    <p style={{ color: "#D14F4F", fontSize: 11, marginTop: 6, fontWeight: 500 }}>{authError}</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Signature Section (accepted state) */}
           {status === "accepted" && (
@@ -280,7 +420,6 @@ export default function PublicProposalPortal() {
           overflow: hidden;
         }
 
-        /* ─── Document Header ─── */
         .doc-header {
           display: flex;
           align-items: flex-start;
@@ -289,28 +428,26 @@ export default function PublicProposalPortal() {
           background: #FAFCFA;
           border-bottom: 1px solid #E8F2EC;
         }
-
-        .doc-logo { height: 30px; width: auto; }
-
+        .doc-logo {
+          height: 48px;
+          width: auto;
+        }
         .doc-accent-line {
           height: 3px;
           background: linear-gradient(90deg, #00B872 0%, #00E090 60%, transparent 100%);
         }
 
-        /* ─── Meta Strip ─── */
         .doc-meta-strip {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
-          gap: 0;
           border-bottom: 1px solid #E8F2EC;
         }
-
         .meta-item {
           padding: 16px 24px;
           border-right: 1px solid #E8F2EC;
           display: flex;
           flex-direction: column;
-          gap: 3;
+          gap: 3px;
         }
         .meta-item:last-child { border-right: none; }
 
@@ -395,7 +532,7 @@ export default function PublicProposalPortal() {
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
         @media print {
-          @page { size: A4; margin: 18mm 14mm 20mm 14mm; }
+          @page { size: A4; margin: 20mm 15mm 20mm 15mm; }
 
           html, body { background: #fff !important; }
 
@@ -413,22 +550,23 @@ export default function PublicProposalPortal() {
           .doc-footer { display: none; }
 
           .pdf-watermark {
-            display: block !important;
+            display: flex !important;
             position: fixed;
             top: 50%;
             left: 50%;
-            transform: translate(-50%, -50%) rotate(-42deg);
-            font-size: 90px;
-            font-weight: 900;
-            font-family: 'Jost', sans-serif;
-            color: rgba(0, 184, 114, 0.05) !important;
-            text-transform: uppercase;
-            letter-spacing: 0.2em;
+            transform: translate(-50%, -50%);
             pointer-events: none;
             z-index: 0;
-            white-space: nowrap;
+            opacity: 0.035;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
+            justify-content: center;
+            align-items: center;
+          }
+
+          .pdf-watermark img {
+            width: 320px;
+            height: auto;
           }
 
           .pdf-header {
@@ -464,8 +602,30 @@ export default function PublicProposalPortal() {
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
+
+          h1, h2, h3, h4 {
+            page-break-after: avoid;
+          }
+
+          p, ul, ol, table, tr {
+            page-break-inside: avoid;
+          }
         }
       `}</style>
     </div>
+  );
+}
+
+export default function PublicProposalPortal() {
+  return (
+    <Suspense fallback={
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "#F4FBF7", gap: 14 }}>
+        <Loader2 size={28} style={{ color: "#00B872", animation: "spin 1s linear infinite" }} />
+        <p style={{ fontSize: 13, color: "#6B8F7C", fontFamily: "system-ui, sans-serif" }}>Loading secure workspace...</p>
+        <style>{`@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}`}</style>
+      </div>
+    }>
+      <PublicProposalPortalContent />
+    </Suspense>
   );
 }

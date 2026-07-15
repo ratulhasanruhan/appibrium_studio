@@ -7,6 +7,7 @@ import { getClient } from "@/services/crm";
 import type { Invoice, Client, InvoiceItem } from "@/types";
 import { formatDate, formatCurrency } from "@/utils";
 import { useParams } from "next/navigation";
+import { databases, DB_ID, COLLECTIONS, Query } from "@/lib/appwrite/client";
 
 export default function PublicInvoicePortal() {
   const params = useParams();
@@ -16,6 +17,7 @@ export default function PublicInvoicePortal() {
   const [client,  setClient]  = useState<Client | null>(null);
   const [items,   setItems]   = useState<InvoiceItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [bankDetails, setBankDetails] = useState<any>(null);
 
   useEffect(() => {
     async function load() {
@@ -24,12 +26,25 @@ export default function PublicInvoicePortal() {
       const inv = await getInvoiceByToken(token);
       if (inv) {
         setInvoice(inv);
-        const [cl, lineItems] = await Promise.all([
+        const [cl, lineItems, settingsRes] = await Promise.all([
           getClient(inv.client_id),
           getInvoiceItems(inv.$id),
+          databases.listDocuments(DB_ID, COLLECTIONS.WORKSPACE_SETTINGS, [Query.limit(1)]),
         ]);
         setClient(cl);
         setItems(lineItems);
+
+        if (settingsRes.documents.length > 0) {
+          const doc = settingsRes.documents[0] as any;
+          if (doc.bank_details) {
+            try {
+              const bd = typeof doc.bank_details === "string"
+                ? JSON.parse(doc.bank_details)
+                : doc.bank_details;
+              setBankDetails(bd);
+            } catch (_) {}
+          }
+        }
       }
       setLoading(false);
     }
@@ -59,15 +74,7 @@ export default function PublicInvoicePortal() {
   const invoiceRef = `APP-INV-${new Date(invoice.$createdAt).getFullYear()}-${invoice.$id.slice(-4).toUpperCase()}`;
   const currency   = invoice.currency || "BDT";
 
-  // Parse bank details
-  let bankDetails: any = null;
-  if (invoice.bank_details) {
-    try {
-      bankDetails = typeof invoice.bank_details === "string"
-        ? JSON.parse(invoice.bank_details as any)
-        : invoice.bank_details;
-    } catch (_) {}
-  }
+  // Bank details state loaded from workspace settings
 
   const statusColors: Record<string, { bg: string; color: string; label: string }> = {
     paid:      { bg: "#E6FAF3", color: "#00965C", label: "✓ Paid" },
@@ -83,7 +90,7 @@ export default function PublicInvoicePortal() {
       {/* ─── Header ─── */}
       <header className="inv-header no-print">
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <img src="/branding_assets/logos/lockup/lockup_w4_light.svg" alt="Appibrium" style={{ height: 26, width: "auto", filter: "brightness(0) invert(1)" }} />
+          <img src="/branding_assets/logos/lockup/lockup_w4_light.svg" alt="Appibrium" style={{ height: 26, width: "auto" }} />
           <div style={{ width: 1, height: 18, background: "rgba(255,255,255,0.25)" }} />
           <span style={{ fontFamily: "'Jost', system-ui, sans-serif", fontWeight: 800, fontSize: 13, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.9)" }}>Studio</span>
         </div>
@@ -117,7 +124,7 @@ export default function PublicInvoicePortal() {
               <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: "#6B8F7C", marginTop: 6 }}>{invoiceRef}</p>
             </div>
             <div style={{ textAlign: "right" }}>
-              <img src="/branding_assets/logos/lockup/lockup_w4_light.svg" alt="Appibrium" style={{ height: 26, width: "auto", display: "block", marginLeft: "auto", marginBottom: 6 }} />
+              <img src="/branding_assets/logos/wordmark/wordmark_dark.svg" alt="Appibrium" style={{ height: 48, width: "auto", display: "block", marginLeft: "auto", marginBottom: 6 }} />
               <p style={{ fontSize: 11, color: "#6B8F7C" }}>Appibrium Technology Co.</p>
               <p style={{ fontSize: 11, color: "#6B8F7C" }}>23/A Shukrabad, Dhaka, Bangladesh</p>
             </div>

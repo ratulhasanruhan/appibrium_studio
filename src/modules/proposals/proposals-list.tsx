@@ -7,6 +7,7 @@ import { formatRelativeTime } from "@/utils";
 import Link from "next/link";
 import { getProposals } from "@/services/proposals";
 import { getClients } from "@/services/crm";
+import { account, databases, DB_ID, COLLECTIONS, Query } from "@/lib/appwrite/client";
 
 type ProposalWithClient = Proposal & { client_name: string };
 
@@ -33,15 +34,39 @@ export function ProposalsList() {
   const [filter, setFilter]   = useState<StatusFilter>("all");
   const [proposals, setProposals] = useState<ProposalWithClient[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     async function load() {
       setLoading(true);
       try {
-        const [rawProposals, clients] = await Promise.all([
-          getProposals(),
-          getClients(),
-        ]);
+        const user = await account.get();
+        const labels = (user as any).labels || [];
+        const admin = labels.length > 0 && ["owner", "admin", "administrator", "manager", "finance"].includes(labels[0].toLowerCase());
+        setIsAdmin(admin);
+
+        let rawProposals: Proposal[] = [];
+        let clients: Client[] = [];
+
+        if (!admin) {
+          const clientRes = await databases.listDocuments(DB_ID, COLLECTIONS.CLIENTS, [
+            Query.equal("email", user.email),
+            Query.limit(1)
+          ]);
+          if (clientRes.documents.length > 0) {
+            const clientDbId = clientRes.documents[0].$id;
+            rawProposals = await getProposals(clientDbId);
+            clients = [clientRes.documents[0] as unknown as Client];
+          }
+        } else {
+          const [allProps, allClis] = await Promise.all([
+            getProposals(),
+            getClients(),
+          ]);
+          rawProposals = allProps;
+          clients = allClis;
+        }
+
         const clientMap = new Map<string, string>(clients.map((c) => [c.$id, c.name]));
         const enriched: ProposalWithClient[] = rawProposals.map((p) => ({
           ...p,
@@ -170,13 +195,15 @@ export function ProposalsList() {
                       <span suppressHydrationWarning style={{ fontSize: 12, color: "var(--foreground-muted)" }}>{formatRelativeTime(p.$updatedAt)}</span>
                     </td>
                     <td>
-                      <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                        <Link
-                          href={`/proposals/${p.$id}/edit`}
-                          style={{ fontSize: 11, color: "var(--accent)", textDecoration: "none", padding: "4px 8px", borderRadius: "var(--radius-sm)", background: "var(--accent-subtle)", border: "1px solid rgba(0,184,114,0.15)", fontWeight: 500, fontFamily: "var(--font-body)" }}
-                        >
-                          Edit
-                        </Link>
+                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        {isAdmin && (
+                          <Link
+                            href={`/proposals/${p.$id}/edit`}
+                            style={{ fontSize: 11, color: "var(--accent)", textDecoration: "none", padding: "4px 8px", borderRadius: "var(--radius-sm)", background: "var(--accent-subtle)", border: "1px solid rgba(0,184,114,0.15)", fontWeight: 500, fontFamily: "var(--font-body)" }}
+                          >
+                            Edit
+                          </Link>
+                        )}
                         <a
                           href={`/public/proposal/${p.public_token}`}
                           target="_blank"

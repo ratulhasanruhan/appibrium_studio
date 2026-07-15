@@ -1,14 +1,15 @@
 import { Topbar } from "@/components/topbar";
+import { FilesList } from "@/modules/files/files-list";
 import type { Metadata } from "next";
-export const metadata: Metadata = { title: "Files" };
+
+export const metadata: Metadata = { title: "Files · Appibrium Studio" };
+
 export default function FilesPage() {
   return (
     <>
-      <Topbar title="Files" subtitle="Contracts, designs, and documents" />
+      <Topbar title="Files" subtitle="Manage contracts, project briefs, assets, and invoices" />
       <div className="page-content">
-        <div className="card" style={{ minHeight: 300, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <p style={{ color: "var(--foreground-muted)" }}>Files module — coming soon.</p>
-        </div>
+        <FilesList />
       </div>
     </>
   );

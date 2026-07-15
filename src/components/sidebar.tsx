@@ -66,6 +66,8 @@ export function Sidebar() {
   const [userName, setUserName] = useState("");
   const [userLabel, setUserLabel] = useState("");
 
+  const isAdmin = userLabel && ["owner", "admin", "administrator", "manager", "finance"].includes(userLabel.toLowerCase());
+
   useEffect(() => {
     // Ping Appwrite server on mount
     if (typeof (client as any).ping === "function") {
@@ -83,7 +85,7 @@ export function Sidebar() {
         if (labels.length > 0) {
           setUserLabel(labels[0]);
         } else {
-          setUserLabel("Owner");
+          setUserLabel("client");
         }
       })
       .catch(() => {});
@@ -104,15 +106,15 @@ export function Sidebar() {
     <aside className="sidebar">
 
       {/* ─── Wordmark Header ─── */}
-      <div className="sidebar-header">
-        <Link href="/dashboard" style={{ display: "flex", alignItems: "center", gap: 10, textDecoration: "none" }} className="select-none">
+      <div className="sidebar-header" style={{ padding: "16px 10px 14px" }}>
+        <Link href="/dashboard" style={{ display: "flex", alignItems: "center", gap: 6, textDecoration: "none" }} className="select-none">
           <img
-            src="/branding_assets/logos/lockup/lockup_w4_light.svg"
+            src="/branding_assets/logos/wordmark/wordmark_notag_dark.svg"
             alt="Appibrium"
-            style={{ height: 28, width: "auto", objectFit: "contain", flexShrink: 0 }}
+            style={{ height: 20, width: "auto", objectFit: "contain", flexShrink: 0 }}
           />
-          <div style={{ width: 1, height: 18, background: "var(--border)", flexShrink: 0 }} />
-          <span className="studio-mark" style={{ fontWeight: 800, textTransform: "uppercase", fontSize: 16, letterSpacing: "0.08em", color: "var(--accent)" }}>
+          <div style={{ width: 1, height: 14, background: "var(--border)", flexShrink: 0 }} />
+          <span className="studio-mark" style={{ fontWeight: 800, textTransform: "uppercase", fontSize: 13, letterSpacing: "0.06em", color: "var(--accent)" }}>
             Studio
           </span>
         </Link>
@@ -180,13 +182,19 @@ export function Sidebar() {
       {/* ─── Primary Nav ─── */}
       <div className="sidebar-section" style={{ marginTop: 4 }}>
         <p className="sidebar-label">Workspace</p>
-        {primaryNav.map((item) => <NavLink key={item.href} item={item} />)}
+        {primaryNav.filter(item => {
+          if (item.label === "CRM" || item.label === "Transactions") return isAdmin;
+          return true;
+        }).map((item) => <NavLink key={item.href} item={item} />)}
       </div>
 
       {/* ─── Tools Nav ─── */}
       <div className="sidebar-section" style={{ marginTop: 8 }}>
         <p className="sidebar-label">Tools</p>
-        {toolsNav.map((item) => <NavLink key={item.href} item={item} />)}
+        {toolsNav.filter(item => {
+          if (item.label === "Analytics" || item.label === "AI Assistant") return isAdmin;
+          return true;
+        }).map((item) => <NavLink key={item.href} item={item} />)}
       </div>
 
       {/* Spacer */}
@@ -197,7 +205,10 @@ export function Sidebar() {
         className="sidebar-section"
         style={{ borderTop: "1px solid var(--border)", paddingTop: 8, paddingBottom: 10 }}
       >
-        {systemNav.map((item) => <NavLink key={item.href} item={item} />)}
+        {systemNav.filter(item => {
+          if (item.label === "Settings") return isAdmin;
+          return true;
+        }).map((item) => <NavLink key={item.href} item={item} />)}
       </div>
 
       {/* ─── User Profile ─── */}

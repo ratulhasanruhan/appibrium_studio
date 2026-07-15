@@ -1,13 +1,10 @@
+"use server";
+
 /**
  * SMS Service — pluggable provider adapter.
  *
- * The owner provides:
- *   SMS_API_URL   — the HTTP endpoint of the SMS gateway
- *   SMS_API_KEY   — authentication key
- *   SMS_SENDER_ID — sender alias (e.g. "APPIBRIUM")
- *
- * The service sends a message to a BD mobile number with
- * the public URL of a proposal or invoice.
+ * Runs strictly on the server side ("use server") to protect API keys
+ * and execute network requests securely.
  */
 
 export interface SMSPayload {
@@ -61,6 +58,9 @@ export async function sendSMS(payload: SMSPayload): Promise<SMSResult> {
 
     const url = `${apiUrl}?${params.toString()}`;
 
+    // Temporarily bypass certificate rejection for IP-based HTTPS endpoints
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+
     const response = await fetch(url, {
       method: "GET",
     });
@@ -82,6 +82,9 @@ export async function sendSMS(payload: SMSPayload): Promise<SMSResult> {
   } catch (err) {
     const error = err instanceof Error ? err.message : "Unknown error";
     return { success: false, error };
+  } finally {
+    // Restore default TLS rejection behaviors
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = "1";
   }
 }
 

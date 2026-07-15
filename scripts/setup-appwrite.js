@@ -177,10 +177,6 @@ const SCHEMA = {
     { key: "company_logo_url", type: "string", required: false },
     { key: "default_currency", type: "string", required: true, default: "BDT" },
     { key: "bank_details", type: "string", required: true, size: 4000 },
-    { key: "sms_api_url", type: "string", required: false },
-    { key: "sms_api_key", type: "string", required: false },
-    { key: "sms_sender_id", type: "string", required: false },
-    { key: "resend_api_key", type: "string", required: false },
   ],
 };
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Topbar } from "@/components/topbar";
-import { Save, Building2, CreditCard, MessageSquare, Globe, User, Lock, Loader2, Check, AlertCircle } from "lucide-react";
+import { Save, Building2, CreditCard, Globe, User, Loader2, Check, AlertCircle } from "lucide-react";
 import { CURRENCIES } from "@/types";
 import { account, databases, DB_ID, COLLECTIONS, ID, Query } from "@/lib/appwrite/client";
 
@@ -11,7 +11,6 @@ const TABS = [
   { id: "company",  label: "Company",        icon: Building2 },
   { id: "currency", label: "Currency",       icon: Globe },
   { id: "bank",     label: "Bank Details",   icon: CreditCard },
-  { id: "sms",      label: "SMS",            icon: MessageSquare },
 ];
 
 type SaveStatus = "idle" | "saving" | "saved" | "error";
@@ -47,12 +46,6 @@ export default function SettingsPage() {
   const [bankRouting, setBankRouting]                 = useState("");
   const [mobileBankingProvider, setMobileBankingProvider] = useState("bKash");
   const [mobileBankingNumber, setMobileBankingNumber]     = useState("");
-
-  // ── SMS
-  const [smsApiUrl, setSmsApiUrl]     = useState("");
-  const [smsApiKey, setSmsApiKey]     = useState("");
-  const [smsSenderId, setSmsSenderId] = useState("APPIBRIUM");
-  const [smsTestPhone, setSmsTestPhone] = useState("");
 
   // Load user profile + existing workspace settings
   useEffect(() => {
@@ -92,9 +85,6 @@ export default function SettingsPage() {
               if (bd.mobile_banking?.number)   setMobileBankingNumber(bd.mobile_banking.number);
             } catch (_) {}
           }
-          if (doc.sms_api_url)   setSmsApiUrl(doc.sms_api_url);
-          if (doc.sms_api_key)   setSmsApiKey(doc.sms_api_key);
-          if (doc.sms_sender_id) setSmsSenderId(doc.sms_sender_id);
         }
       } catch (err) {
         console.error("[Settings] failed to load workspace settings:", err);
@@ -125,9 +115,6 @@ export default function SettingsPage() {
         company_address:  companyAddress,
         default_currency: selectedCurrency,
         bank_details:     bankDetails,
-        sms_api_url:      smsApiUrl,
-        sms_api_key:      smsApiKey,
-        sms_sender_id:    smsSenderId,
       };
 
       if (settingsDocId) {
@@ -139,35 +126,31 @@ export default function SettingsPage() {
       setSaveStatus("saved");
       setTimeout(() => setSaveStatus("idle"), 2500);
     } catch (err: any) {
-      console.error("[Settings] save error:", err);
+      console.error("[Settings] save settings error:", err);
       setSaveStatus("error");
-      setTimeout(() => setSaveStatus("idle"), 3000);
     }
   }
 
-  async function handlePasswordChange(e: React.FormEvent) {
+  async function handlePasswordUpdate(e: React.FormEvent) {
     e.preventDefault();
-    setPwError("");
     if (newPassword !== confirmPassword) {
       setPwError("New passwords do not match.");
-      return;
-    }
-    if (newPassword.length < 8) {
-      setPwError("Password must be at least 8 characters.");
+      setPwStatus("error");
       return;
     }
     setPwStatus("saving");
+    setPwError("");
     try {
       await account.updatePassword(newPassword, oldPassword);
       setPwStatus("saved");
       setOldPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      setTimeout(() => setPwStatus("idle"), 2500);
+      setTimeout(() => setPwStatus("idle"), 3000);
     } catch (err: any) {
+      console.error("[Settings] update password error:", err);
       setPwError(err.message || "Failed to update password.");
       setPwStatus("error");
-      setTimeout(() => setPwStatus("idle"), 3000);
     }
   }
 
@@ -183,230 +166,193 @@ export default function SettingsPage() {
 
   return (
     <>
-      <Topbar title="Settings" subtitle="Workspace configuration and preferences" />
+      <Topbar title="Settings" subtitle="Manage your profile, company details, currencies, and bank details" />
       <div className="page-content">
-        <div style={{ display: "grid", gridTemplateColumns: "200px 1fr", gap: 20, maxWidth: 920 }}>
-
-          {/* ─── Sidebar Tabs ─── */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            {TABS.map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                id={`settings-tab-${id}`}
-                onClick={() => setActiveTab(id)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 9,
-                  padding: "9px 12px",
-                  borderRadius: "var(--radius-md)",
-                  background: activeTab === id ? "var(--accent-subtle)" : "transparent",
-                  color: activeTab === id ? "var(--accent)" : "var(--foreground-muted)",
-                  border: `1px solid ${activeTab === id ? "rgba(0,184,114,0.2)" : "transparent"}`,
-                  cursor: "pointer",
-                  fontFamily: "var(--font-body)",
-                  fontSize: 13,
-                  fontWeight: activeTab === id ? 600 : 400,
-                  textAlign: "left",
-                  transition: "all 0.1s",
-                }}
-              >
-                <Icon size={14} />
-                {label}
-              </button>
-            ))}
+        <div style={{ display: "grid", gridTemplateColumns: "220px 1fr", gap: 20 }}>
+          
+          {/* Left Navigation */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {TABS.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 10,
+                    padding: "10px 12px",
+                    borderRadius: "var(--radius-md)",
+                    fontSize: 12,
+                    fontWeight: isActive ? 600 : 500,
+                    color: isActive ? "var(--accent)" : "var(--foreground-muted)",
+                    background: isActive ? "var(--accent-subtle)" : "transparent",
+                    border: "none",
+                    cursor: "pointer",
+                    textAlign: "left",
+                    fontFamily: "var(--font-body)",
+                    transition: "all 0.12s",
+                  }}
+                >
+                  <Icon size={14} />
+                  {tab.label}
+                </button>
+              );
+            })}
           </div>
 
-          {/* ─── Panel ─── */}
-          <div className="card">
-
-            {/* Profile */}
+          {/* Right Workspace Card */}
+          <div className="card" style={{ minHeight: 380, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+            
+            {/* Profile Tab */}
             {activeTab === "profile" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-                <div>
-                  <h2 style={{ fontSize: 14, fontWeight: 600, fontFamily: "var(--font-heading)", marginBottom: 4 }}>Your Profile</h2>
-                  <p style={{ fontSize: 12, color: "var(--foreground-muted)", marginBottom: 20 }}>Manage your Appwrite account details.</p>
-
-                  <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24, padding: "14px 16px", borderRadius: "var(--radius-lg)", background: "var(--surface)", border: "1px solid var(--border)" }}>
-                    <div style={{ width: 48, height: 48, borderRadius: "50%", background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 700, color: "#fff", fontFamily: "var(--font-heading)", flexShrink: 0 }}>
-                      {userName.slice(0, 1).toUpperCase() || "U"}
-                    </div>
-                    <div>
-                      <p style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)", fontFamily: "var(--font-heading)" }}>{userName || "—"}</p>
-                      <p style={{ fontSize: 12, color: "var(--foreground-muted)" }}>{userEmail || "—"}</p>
-                    </div>
+              <div>
+                <h2 style={{ fontSize: 14, fontWeight: 600, fontFamily: "var(--font-heading)", marginBottom: 4 }}>User Profile</h2>
+                <p style={{ fontSize: 12, color: "var(--foreground-muted)", marginBottom: 20 }}>Update your login credentials and personal info.</p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 460 }}>
+                  <div>
+                    <label style={labelStyle}>Full Name</label>
+                    <input className="input-base" value={userName} readOnly style={{ background: "var(--surface)", cursor: "not-allowed", color: "var(--foreground-muted)" }} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Email Address</label>
+                    <input className="input-base" value={userEmail} readOnly style={{ background: "var(--surface)", cursor: "not-allowed", color: "var(--foreground-muted)" }} />
                   </div>
 
-                  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  <form onSubmit={handlePasswordUpdate} style={{ borderTop: "1px solid var(--border)", paddingTop: 16, marginTop: 6, display: "flex", flexDirection: "column", gap: 12 }}>
+                    <p style={{ fontSize: 11, fontWeight: 700, color: "var(--foreground-2)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 4 }}>Update Password</p>
                     <div>
-                      <label style={labelStyle} htmlFor="profile-name">Display Name</label>
-                      <input id="profile-name" className="input-base" value={userName} onChange={(e) => setUserName(e.target.value)} placeholder="Your name" />
+                      <label style={labelStyle} htmlFor="old-password">Current Password</label>
+                      <input id="old-password" type="password" className="input-base" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} required placeholder="••••••••" />
                     </div>
                     <div>
-                      <label style={labelStyle}>Email</label>
-                      <input className="input-base" value={userEmail} disabled style={{ opacity: 0.6, cursor: "not-allowed" }} />
-                      <p style={{ fontSize: 10, color: "var(--foreground-faint)", marginTop: 4 }}>Email cannot be changed from here.</p>
+                      <label style={labelStyle} htmlFor="new-password">New Password</label>
+                      <input id="new-password" type="password" className="input-base" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} required placeholder="••••••••" />
                     </div>
-                  </div>
-                </div>
+                    <div>
+                      <label style={labelStyle} htmlFor="confirm-password">Confirm New Password</label>
+                      <input id="confirm-password" type="password" className="input-base" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required placeholder="••••••••" />
+                    </div>
 
-                <div style={{ borderTop: "1px solid var(--border)", paddingTop: 20 }}>
-                  <h3 style={{ fontSize: 13, fontWeight: 600, fontFamily: "var(--font-heading)", marginBottom: 4 }}>Change Password</h3>
-                  <p style={{ fontSize: 12, color: "var(--foreground-muted)", marginBottom: 16 }}>Enter your current password and choose a new one.</p>
-                  <form onSubmit={handlePasswordChange} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                    {[
-                      { label: "Current Password", value: oldPassword,     setter: setOldPassword,     id: "old-password" },
-                      { label: "New Password",      value: newPassword,     setter: setNewPassword,     id: "new-password" },
-                      { label: "Confirm Password",  value: confirmPassword, setter: setConfirmPassword, id: "confirm-password" },
-                    ].map(({ label, value, setter, id }) => (
-                      <div key={id}>
-                        <label style={labelStyle} htmlFor={id}>{label}</label>
-                        <input id={id} type="password" className="input-base" value={value} onChange={(e) => setter(e.target.value)} required />
-                      </div>
-                    ))}
-                    {pwError && (
-                      <div style={{ padding: "8px 12px", borderRadius: "var(--radius-md)", background: "#FEF2F2", border: "1px solid #FAC5C5", fontSize: 12, color: "#D14F4F", display: "flex", alignItems: "center", gap: 6 }}>
-                        <AlertCircle size={13} /> {pwError}
+                    {pwStatus === "error" && (
+                      <div style={{ padding: "8px 12px", borderRadius: "var(--radius-md)", background: "#FEF2F2", border: "1px solid #FAC5C5", fontSize: 12, color: "#D14F4F" }}>
+                        {pwError}
                       </div>
                     )}
-                    <div>
-                      <button type="submit" id="password-save-btn" className="btn btn-ghost" style={{ fontSize: 12 }} disabled={pwStatus === "saving"}>
-                        {pwStatus === "saving" ? <><Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> Updating...</> :
-                         pwStatus === "saved"  ? <><Check size={13} /> Password Updated!</> :
-                         <><Lock size={13} /> Update Password</>}
-                      </button>
-                    </div>
+                    {pwStatus === "saved" && (
+                      <div style={{ padding: "8px 12px", borderRadius: "var(--radius-md)", background: "#E6FAF3", border: "1px solid #B3E8D2", fontSize: 12, color: "#00965C" }}>
+                        Password updated successfully!
+                      </div>
+                    )}
+
+                    <button type="submit" className="btn btn-primary" style={{ width: "fit-content", fontSize: 12, marginTop: 4 }} disabled={pwStatus === "saving"}>
+                      {pwStatus === "saving" ? "Updating..." : "Update Password"}
+                    </button>
                   </form>
                 </div>
-
-                {/* Profile-level save excluded — password change has its own submit */}
               </div>
             )}
 
-            {/* Company */}
+            {/* Company Settings */}
             {activeTab === "company" && (
               <div>
-                <h2 style={{ fontSize: 14, fontWeight: 600, fontFamily: "var(--font-heading)", marginBottom: 4 }}>Company Information</h2>
-                <p style={{ fontSize: 12, color: "var(--foreground-muted)", marginBottom: 20 }}>This information appears on all generated documents.</p>
-                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                  {[
-                    { label: "Company Name",  value: companyName,    setter: setCompanyName,    id: "company-name" },
-                    { label: "Email",         value: companyEmail,   setter: setCompanyEmail,   id: "company-email" },
-                    { label: "Phone",         value: companyPhone,   setter: setCompanyPhone,   id: "company-phone",   placeholder: "+8801..." },
-                    { label: "Address",       value: companyAddress, setter: setCompanyAddress, id: "company-address" },
-                  ].map(({ label, value, setter, id, placeholder }: any) => (
-                    <div key={id}>
-                      <label style={labelStyle} htmlFor={id}>{label}</label>
-                      <input id={id} className="input-base" value={value} onChange={(e) => setter(e.target.value)} placeholder={placeholder} />
+                <h2 style={{ fontSize: 14, fontWeight: 600, fontFamily: "var(--font-heading)", marginBottom: 4 }}>Company Workspace Settings</h2>
+                <p style={{ fontSize: 12, color: "var(--foreground-muted)", marginBottom: 20 }}>Configure your brand details used on public quotes and templates.</p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 520 }}>
+                  <div>
+                    <label style={labelStyle} htmlFor="company-name">Legal Business Name</label>
+                    <input id="company-name" className="input-base" value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="e.g. Acme Inc." />
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    <div>
+                      <label style={labelStyle} htmlFor="company-email">Outbound Email</label>
+                      <input id="company-email" className="input-base" type="email" value={companyEmail} onChange={(e) => setCompanyEmail(e.target.value)} placeholder="finance@company.com" />
                     </div>
-                  ))}
+                    <div>
+                      <label style={labelStyle} htmlFor="company-phone">Phone Number</label>
+                      <input id="company-phone" className="input-base" value={companyPhone} onChange={(e) => setCompanyPhone(e.target.value)} placeholder="+880..." />
+                    </div>
+                  </div>
+                  <div>
+                    <label style={labelStyle} htmlFor="company-address">Physical Address</label>
+                    <input id="company-address" className="input-base" value={companyAddress} onChange={(e) => setCompanyAddress(e.target.value)} placeholder="Street name, City, Zip" />
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* Currency */}
+            {/* Currency settings */}
             {activeTab === "currency" && (
               <div>
-                <h2 style={{ fontSize: 14, fontWeight: 600, fontFamily: "var(--font-heading)", marginBottom: 4 }}>Currency Settings</h2>
-                <p style={{ fontSize: 12, color: "var(--foreground-muted)", marginBottom: 20 }}>Select the default currency for invoices, proposals, and transactions.</p>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
-                  {CURRENCIES.map((c) => (
-                    <button
-                      key={c.code}
-                      id={`currency-${c.code}`}
-                      onClick={() => setSelectedCurrency(c.code)}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 12,
-                        padding: "14px 16px",
-                        borderRadius: "var(--radius-lg)",
-                        border: `2px solid ${selectedCurrency === c.code ? "var(--accent)" : "var(--border)"}`,
-                        background: selectedCurrency === c.code ? "var(--accent-subtle)" : "var(--background-alt)",
-                        cursor: "pointer",
-                        transition: "all 0.15s",
-                        textAlign: "left",
-                      }}
-                    >
-                      <div style={{ width: 36, height: 36, borderRadius: "var(--radius-md)", background: selectedCurrency === c.code ? "var(--accent)" : "var(--surface)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 700, color: selectedCurrency === c.code ? "white" : "var(--foreground-muted)", fontFamily: "var(--font-heading)", flexShrink: 0 }}>
-                        {c.symbol}
-                      </div>
-                      <div>
-                        <p style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)", fontFamily: "var(--font-heading)" }}>{c.code}</p>
-                        <p style={{ fontSize: 11, color: "var(--foreground-muted)" }}>{c.name}</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-                <div style={{ marginTop: 16, padding: "12px 16px", borderRadius: "var(--radius-md)", background: "var(--surface)", border: "1px solid var(--border)", fontSize: 12, color: "var(--foreground-muted)" }}>
-                  Selected: <strong style={{ color: "var(--foreground)" }}>{CURRENCIES.find(c => c.code === selectedCurrency)?.name}</strong> — symbol <strong style={{ color: "var(--accent)", fontSize: 14 }}>{CURRENCIES.find(c => c.code === selectedCurrency)?.symbol}</strong>
+                <h2 style={{ fontSize: 14, fontWeight: 600, fontFamily: "var(--font-heading)", marginBottom: 4 }}>Workspace Currency</h2>
+                <p style={{ fontSize: 12, color: "var(--foreground-muted)", marginBottom: 20 }}>Configure your primary default billing currency.</p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 320 }}>
+                  <div>
+                    <label style={labelStyle} htmlFor="default-currency">Default Currency</label>
+                    <select id="default-currency" className="input-base" value={selectedCurrency} onChange={(e) => setSelectedCurrency(e.target.value)}>
+                      {CURRENCIES.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.code} ({c.symbol}) — {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* Bank Details */}
+            {/* Bank details settings */}
             {activeTab === "bank" && (
               <div>
-                <h2 style={{ fontSize: 14, fontWeight: 600, fontFamily: "var(--font-heading)", marginBottom: 4 }}>Bank Details</h2>
-                <p style={{ fontSize: 12, color: "var(--foreground-muted)", marginBottom: 20 }}>These details appear on all invoices for manual bank transfers.</p>
-                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                  {[
-                    { label: "Account Name",   value: bankAccountName,   setter: setBankAccountName,   id: "bank-acct-name",   placeholder: "Legal company name" },
-                    { label: "Account Number", value: bankAccountNumber, setter: setBankAccountNumber, id: "bank-acct-number", placeholder: "e.g. 1234 5678 9012 3456" },
-                    { label: "Bank Name",      value: bankName,          setter: setBankName,          id: "bank-name",        placeholder: "e.g. Dutch-Bangla Bank" },
-                    { label: "Branch",         value: bankBranch,        setter: setBankBranch,        id: "bank-branch",      placeholder: "Branch name" },
-                    { label: "Routing Number", value: bankRouting,       setter: setBankRouting,       id: "bank-routing",     placeholder: "9-digit routing number" },
-                  ].map(({ label, value, setter, id, placeholder }) => (
-                    <div key={id}>
-                      <label style={labelStyle} htmlFor={id}>{label}</label>
-                      <input id={id} className="input-base" value={value} onChange={(e) => setter(e.target.value)} placeholder={placeholder} />
+                <h2 style={{ fontSize: 14, fontWeight: 600, fontFamily: "var(--font-heading)", marginBottom: 4 }}>Bank & Mobile Details</h2>
+                <p style={{ fontSize: 12, color: "var(--foreground-muted)", marginBottom: 20 }}>Provide bank accounts shown on public invoices.</p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                  
+                  {/* Bank Details */}
+                  <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: 16, background: "var(--surface)" }}>
+                    <p style={{ fontSize: 11, fontWeight: 700, color: "var(--foreground-2)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 12 }}>Bank accounts</p>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                      <div>
+                        <label style={labelStyle} htmlFor="bank-acc-name">Account Name</label>
+                        <input id="bank-acc-name" className="input-base" value={bankAccountName} onChange={(e) => setBankAccountName(e.target.value)} placeholder="Company legal name" />
+                      </div>
+                      <div>
+                        <label style={labelStyle} htmlFor="bank-acc-num">Account Number</label>
+                        <input id="bank-acc-num" className="input-base" value={bankAccountNumber} onChange={(e) => setBankAccountNumber(e.target.value)} placeholder="Account digits" />
+                      </div>
+                      <div>
+                        <label style={labelStyle} htmlFor="bank-name-input">Bank Name</label>
+                        <input id="bank-name-input" className="input-base" value={bankName} onChange={(e) => setBankName(e.target.value)} placeholder="e.g. Eastern Bank PLC" />
+                      </div>
+                      <div>
+                        <label style={labelStyle} htmlFor="bank-branch">Branch</label>
+                        <input id="bank-branch" className="input-base" value={bankBranch} onChange={(e) => setBankBranch(e.target.value)} placeholder="Branch name" />
+                      </div>
+                      <div style={{ gridColumn: "1/-1" }}>
+                        <label style={labelStyle} htmlFor="bank-routing">Routing Number</label>
+                        <input id="bank-routing" className="input-base" value={bankRouting} onChange={(e) => setBankRouting(e.target.value)} placeholder="9 digit routing code" />
+                      </div>
                     </div>
-                  ))}
-                  <div style={{ borderTop: "1px solid var(--border)", paddingTop: 14 }}>
-                    <p style={{ fontSize: 11, fontWeight: 600, color: "var(--foreground-muted)", marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.05em" }}>Mobile Banking</p>
+                  </div>
+
+                  {/* Mobile banking details */}
+                  <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: 16, background: "var(--surface)" }}>
+                    <p style={{ fontSize: 11, fontWeight: 700, color: "var(--foreground-2)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 12 }}>Mobile Banking Payments</p>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                       <div>
                         <label style={labelStyle} htmlFor="mobile-banking-provider">Provider</label>
                         <select id="mobile-banking-provider" className="input-base" value={mobileBankingProvider} onChange={(e) => setMobileBankingProvider(e.target.value)}>
-                          {["bKash", "Nagad", "Rocket", "Upay", "SureCash"].map((p) => <option key={p}>{p}</option>)}
+                          <option value="bKash">bKash</option>
+                          <option value="Nagad">Nagad</option>
+                          <option value="Rocket">Rocket</option>
                         </select>
                       </div>
                       <div>
                         <label style={labelStyle} htmlFor="mobile-banking-number">Number</label>
                         <input id="mobile-banking-number" className="input-base" value={mobileBankingNumber} onChange={(e) => setMobileBankingNumber(e.target.value)} placeholder="01XXXXXXXXX" />
                       </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* SMS */}
-            {activeTab === "sms" && (
-              <div>
-                <h2 style={{ fontSize: 14, fontWeight: 600, fontFamily: "var(--font-heading)", marginBottom: 4 }}>SMS Configuration</h2>
-                <p style={{ fontSize: 12, color: "var(--foreground-muted)", marginBottom: 20 }}>Connect your SMS gateway to send proposal and invoice links to clients.</p>
-                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                  <div>
-                    <label style={labelStyle} htmlFor="sms-api-url">API Endpoint URL</label>
-                    <input id="sms-api-url" className="input-base" type="url" value={smsApiUrl} onChange={(e) => setSmsApiUrl(e.target.value)} placeholder="https://api.smsprovider.com/send" />
-                  </div>
-                  <div>
-                    <label style={labelStyle} htmlFor="sms-api-key">API Key</label>
-                    <input id="sms-api-key" className="input-base" type="password" value={smsApiKey} onChange={(e) => setSmsApiKey(e.target.value)} placeholder="Your API key" />
-                  </div>
-                  <div>
-                    <label style={labelStyle} htmlFor="sms-sender-id">Sender ID</label>
-                    <input id="sms-sender-id" className="input-base" value={smsSenderId} onChange={(e) => setSmsSenderId(e.target.value)} placeholder="e.g. APPIBRIUM" maxLength={11} />
-                    <p style={{ fontSize: 10, color: "var(--foreground-faint)", marginTop: 4 }}>Maximum 11 characters. Must be approved by your provider.</p>
-                  </div>
-                  <div style={{ borderTop: "1px solid var(--border)", paddingTop: 14 }}>
-                    <p style={{ fontSize: 11, fontWeight: 600, color: "var(--foreground-muted)", marginBottom: 10, textTransform: "uppercase", letterSpacing: "0.05em" }}>Test SMS</p>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <input id="sms-test-phone" className="input-base" value={smsTestPhone} onChange={(e) => setSmsTestPhone(e.target.value)} placeholder="01XXXXXXXXX" style={{ flex: 1 }} />
-                      <button className="btn btn-ghost" style={{ fontSize: 12, whiteSpace: "nowrap" }}>
-                        <MessageSquare size={13} /> Send Test
-                      </button>
                     </div>
                   </div>
                 </div>
