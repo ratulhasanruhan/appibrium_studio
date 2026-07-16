@@ -11,6 +11,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "Missing required fields." }, { status: 400 });
     }
 
+    console.log("[Register API] APPWRITE_API_KEY length:", process.env.APPWRITE_API_KEY?.length || 0);
     const cleanEmail = email.trim().toLowerCase();
     const { databases } = createAdminClient();
 
