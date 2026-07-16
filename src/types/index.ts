@@ -1,6 +1,7 @@
 // ─── Entity Enums ────────────────────────────────────────────────────── //
 
 export type ClientStatus = "lead" | "active" | "inactive";
+export type QuoteStatus = "pending" | "converted" | "declined";
 export type ProjectStatus = "planning" | "active" | "completed" | "on_hold" | "cancelled";
 export type ProposalStatus = "draft" | "review" | "sent" | "viewed" | "accepted" | "rejected";
 export type InvoiceStatus = "draft" | "sent" | "paid" | "cancelled" | "overdue";
@@ -256,4 +257,15 @@ export interface ActionResult<T = void> {
   success: boolean;
   data?: T;
   error?: string;
+}
+
+export interface Quote {
+  $id: string;
+  client_id: string;
+  service: string;
+  message: string;
+  status: QuoteStatus;
+  proposal_id?: string;
+  $createdAt: string;
+  $updatedAt: string;
 }

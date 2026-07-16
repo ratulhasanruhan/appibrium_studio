@@ -178,6 +178,13 @@ const SCHEMA = {
     { key: "default_currency", type: "string", required: true, default: "BDT" },
     { key: "bank_details", type: "string", required: true, size: 4000 },
   ],
+  quotes: [
+    { key: "client_id", type: "string", required: true },
+    { key: "service", type: "string", required: true },
+    { key: "message", type: "string", required: true, size: 5000 },
+    { key: "status", type: "string", required: true, default: "pending" },
+    { key: "proposal_id", type: "string", required: false },
+  ],
 };
 
 // Helper to delay execution
