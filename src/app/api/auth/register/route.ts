@@ -42,6 +42,20 @@ export async function POST(request: Request) {
         role: "Primary Contact",
         is_primary: true,
       });
+
+      // Create user account in Appwrite Auth system
+      try {
+        const { users } = createAdminClient();
+        await users.create(
+          ID.unique(),
+          email.trim().toLowerCase(),
+          undefined, // phone (keep undefined to avoid parsing/formatting validation issues)
+          undefined, // password (blank for magic links)
+          `${firstName.trim()} ${lastName.trim()}`.trim()
+        );
+      } catch (authErr: any) {
+        console.warn("[Register API] Appwrite Auth user creation notice:", authErr.message);
+      }
     }
 
     return NextResponse.json({ success: true, message: "Client database record ready." });

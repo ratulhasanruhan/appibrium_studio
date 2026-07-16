@@ -89,6 +89,29 @@ export function ClientDetail({ id }: ClientDetailProps) {
     setNoteSubmitting(false);
   }
 
+  async function handleDeleteClient() {
+    if (!confirm("Are you sure you want to permanently delete this client? This will delete their database documents and their authentication account. This action cannot be undone.")) return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/crm/delete-client", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert("Client deleted successfully!");
+        window.location.href = "/crm";
+      } else {
+        alert(data.error || "Failed to delete client.");
+        setLoading(false);
+      }
+    } catch (err: any) {
+      alert("An error occurred: " + err.message);
+      setLoading(false);
+    }
+  }
+
   if (loading) {
     return (
       <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: 300, color: "var(--foreground-muted)" }}>
@@ -193,13 +216,22 @@ export function ClientDetail({ id }: ClientDetailProps) {
               </div>
             )}
           </div>
-          <button
-            onClick={() => setShowEditModal(true)}
-            className="btn btn-ghost"
-            style={{ padding: "6px 12px", fontSize: 11 }}
-          >
-            Edit Profile
-          </button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              onClick={() => setShowEditModal(true)}
+              className="btn btn-ghost"
+              style={{ padding: "6px 12px", fontSize: 11 }}
+            >
+              Edit Profile
+            </button>
+            <button
+              onClick={handleDeleteClient}
+              className="btn btn-danger"
+              style={{ padding: "6px 12px", fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}
+            >
+              <Trash2 size={12} /> Delete Client
+            </button>
+          </div>
         </div>
       </div>
 
