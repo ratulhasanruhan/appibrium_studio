@@ -6,6 +6,7 @@ import type { FileMetadata, Client } from "@/types";
 import { formatDate, formatFileSize } from "@/utils";
 import { getFilesMetadata, uploadFile, deleteFile, getFileDownloadUrl } from "@/services/files";
 import { getClients } from "@/services/crm";
+import { account } from "@/lib/appwrite/client";
 
 export function FilesList() {
   const [files, setFiles]         = useState<FileMetadata[]>([]);
@@ -18,12 +19,35 @@ export function FilesList() {
   const [uploadStatus, setUploadStatus] = useState<"idle" | "success" | "error">("idle");
   const [uploadError, setUploadError]   = useState("");
 
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isAdmin, setIsAdmin]         = useState(false);
+  const [myClientId, setMyClientId]   = useState("");
+
   async function loadData() {
     setLoading(true);
     try {
       const [fList, cliList] = await Promise.all([getFilesMetadata(), getClients()]);
       setFiles(fList);
       setClients(cliList);
+
+      // Check user role & resolve client ID
+      try {
+        const user = await account.get();
+        setCurrentUser(user);
+        const labels = user.labels || [];
+        const admin = labels.length > 0 && ["owner", "admin", "administrator", "manager", "finance"].includes(labels[0].toLowerCase());
+        setIsAdmin(admin);
+
+        if (!admin) {
+          const matchingClient = cliList.find(c => c.email?.toLowerCase() === user.email?.toLowerCase());
+          if (matchingClient) {
+            setMyClientId(matchingClient.$id);
+            setClientId(matchingClient.$id);
+          }
+        }
+      } catch (userErr) {
+        console.error("Failed to load account session in files list:", userErr);
+      }
     } catch (err) {
       console.error("[FilesList] load error:", err);
     } finally {
@@ -39,7 +63,11 @@ export function FilesList() {
 
   const filtered = files.filter((f) => {
     const q = search.toLowerCase();
-    return f.name.toLowerCase().includes(q);
+    const matchesSearch = f.name.toLowerCase().includes(q);
+    if (!matchesSearch) return false;
+
+    if (isAdmin) return true;
+    return !f.client_id || f.client_id === myClientId;
   });
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -168,15 +196,17 @@ export function FilesList() {
         <h2 style={{ fontSize: 13, fontWeight: 600, fontFamily: "var(--font-heading)", marginBottom: 14 }}>Upload Document</h2>
 
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-          <div>
-            <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--foreground-muted)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>Related Client (Optional)</label>
-            <select className="input-base" value={clientId} onChange={(e) => setClientId(e.target.value)}>
-              <option value="">None (General)</option>
-              {clients.map((c) => (
-                <option key={c.$id} value={c.$id}>{c.name}</option>
-              ))}
-            </select>
-          </div>
+          {isAdmin && (
+            <div>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--foreground-muted)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>Related Client (Optional)</label>
+              <select className="input-base" value={clientId} onChange={(e) => setClientId(e.target.value)}>
+                <option value="">None (General)</option>
+                {clients.map((c) => (
+                  <option key={c.$id} value={c.$id}>{c.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div>
             <label
