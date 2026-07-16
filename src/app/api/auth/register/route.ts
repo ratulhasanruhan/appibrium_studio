@@ -11,11 +11,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "Missing required fields." }, { status: 400 });
     }
 
+    const cleanEmail = email.trim().toLowerCase();
     const { databases } = createAdminClient();
 
     // 1. Check if client document already exists in DB
     const clientList = await databases.listDocuments(DB_ID, COLLECTIONS.CLIENTS, [
-      Query.equal("email", email),
+      Query.equal("email", cleanEmail),
     ]);
 
     let clientId = "";
@@ -24,7 +25,7 @@ export async function POST(request: Request) {
       const clientDoc = await databases.createDocument(DB_ID, COLLECTIONS.CLIENTS, ID.unique(), {
         name: companyName,
         legal_name: companyName,
-        email,
+        email: cleanEmail,
         phone,
         website,
         address,
@@ -37,7 +38,7 @@ export async function POST(request: Request) {
         client_id: clientId,
         first_name: firstName,
         last_name: lastName,
-        email,
+        email: cleanEmail,
         phone,
         role: "Primary Contact",
         is_primary: true,
@@ -48,13 +49,18 @@ export async function POST(request: Request) {
         const { users } = createAdminClient();
         await users.create(
           ID.unique(),
-          email.trim().toLowerCase(),
+          cleanEmail,
           undefined, // phone (keep undefined to avoid parsing/formatting validation issues)
           undefined, // password (blank for magic links)
           `${firstName.trim()} ${lastName.trim()}`.trim()
         );
       } catch (authErr: any) {
-        console.warn("[Register API] Appwrite Auth user creation notice:", authErr.message);
+        // Appwrite code 409 means user already exists in Auth, which is safe to ignore
+        if (authErr.code === 409) {
+          console.log("[Register API] User already exists in Auth system, skipping creation.");
+        } else {
+          throw authErr;
+        }
       }
     }
 
