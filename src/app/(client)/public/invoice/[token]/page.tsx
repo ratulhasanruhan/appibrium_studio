@@ -238,17 +238,38 @@ export default function PublicInvoicePortal() {
                       </div>
                     ))}
                   </div>
-                  {bankDetails.mobile_banking?.number && (
-                    <div>
-                      <p style={{ fontSize: 10, fontWeight: 600, color: "#6B8F7C", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8, display: "flex", alignItems: "center", gap: 5 }}>
-                        <Smartphone size={11} /> Mobile Banking
-                      </p>
-                      <div style={{ padding: "10px 14px", background: "#F0FAF5", borderRadius: 8, border: "1px solid #D6EDE1" }}>
-                        <p style={{ fontSize: 13, fontWeight: 700, color: "#0D2317" }}>{bankDetails.mobile_banking.provider}</p>
-                        <p style={{ fontSize: 14, fontWeight: 800, color: "#00965C", fontFamily: "'JetBrains Mono', monospace", marginTop: 3 }}>{bankDetails.mobile_banking.number}</p>
+                  {(() => {
+                    const mobileList = Array.isArray(bankDetails.mobile_banking)
+                      ? bankDetails.mobile_banking
+                      : bankDetails.mobile_banking?.number
+                        ? [bankDetails.mobile_banking]
+                        : [];
+                    if (mobileList.length === 0) return null;
+                    return (
+                      <div>
+                        <p style={{ fontSize: 10, fontWeight: 600, color: "#6B8F7C", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8, display: "flex", alignItems: "center", gap: 5 }}>
+                          <Smartphone size={11} /> Mobile Banking
+                        </p>
+                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                          {mobileList.map((mb: any, idx: number) => (
+                            <div key={idx} style={{ padding: "10px 14px", background: "#F0FAF5", borderRadius: 8, border: "1px solid #D6EDE1" }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                <span style={{ fontSize: 12, fontWeight: 700, color: "#0D2317" }}>{mb.provider}</span>
+                                {mb.type && (
+                                  <span style={{ fontSize: 9, padding: "2px 6px", background: "#D6EDE1", color: "#00965C", borderRadius: 4, fontWeight: 600, textTransform: "uppercase" }}>
+                                    {mb.type}
+                                  </span>
+                                )}
+                              </div>
+                              <p style={{ fontSize: 14, fontWeight: 800, color: "#00965C", fontFamily: "'JetBrains Mono', monospace", marginTop: 3, marginBottom: 0 }}>
+                                {mb.number}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
               </div>
             </div>
@@ -303,9 +324,8 @@ export default function PublicInvoicePortal() {
 
         .inv-badge {
           display: inline-block;
-          padding: 4px 14px; border-radius: 4px;
-          background: #0D2317; color: #00E090;
-          font-size: 13px; font-weight: 800;
+          color: #0D2317;
+          font-size: 14px; font-weight: 800;
           letter-spacing: 0.14em;
           font-family: 'Jost', sans-serif;
         }

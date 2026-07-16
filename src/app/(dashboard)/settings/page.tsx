@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Topbar } from "@/components/topbar";
-import { Save, Building2, CreditCard, Globe, User, Loader2, Check, AlertCircle } from "lucide-react";
+import { Save, Building2, CreditCard, Globe, User, Loader2, Check, AlertCircle, Plus, Trash2 } from "lucide-react";
 import { CURRENCIES } from "@/types";
 import { account, databases, DB_ID, COLLECTIONS, ID, Query } from "@/lib/appwrite/client";
 
@@ -44,8 +44,10 @@ export default function SettingsPage() {
   const [bankName, setBankName]                       = useState("");
   const [bankBranch, setBankBranch]                   = useState("");
   const [bankRouting, setBankRouting]                 = useState("");
-  const [mobileBankingProvider, setMobileBankingProvider] = useState("bKash");
-  const [mobileBankingNumber, setMobileBankingNumber]     = useState("");
+  const [mobileAccounts, setMobileAccounts]           = useState<Array<{ id: string; provider: string; number: string; type: string }>>([]);
+  const [newProvider, setNewProvider]                 = useState("bKash");
+  const [newNumber, setNewNumber]                     = useState("");
+  const [newType, setNewType]                         = useState("Personal");
 
   // Load user profile + existing workspace settings
   useEffect(() => {
@@ -81,8 +83,12 @@ export default function SettingsPage() {
               if (bd.bank_name)       setBankName(bd.bank_name);
               if (bd.branch)          setBankBranch(bd.branch);
               if (bd.routing_number)  setBankRouting(bd.routing_number);
-              if (bd.mobile_banking?.provider) setMobileBankingProvider(bd.mobile_banking.provider);
-              if (bd.mobile_banking?.number)   setMobileBankingNumber(bd.mobile_banking.number);
+              const loadedMobile = Array.isArray(bd.mobile_banking)
+                ? bd.mobile_banking
+                : bd.mobile_banking?.number
+                  ? [{ id: "legacy", provider: bd.mobile_banking.provider || "bKash", number: bd.mobile_banking.number, type: bd.mobile_banking.type || "Personal" }]
+                  : [];
+              setMobileAccounts(loadedMobile);
             } catch (_) {}
           }
         }
@@ -102,10 +108,7 @@ export default function SettingsPage() {
         bank_name: bankName,
         branch: bankBranch,
         routing_number: bankRouting,
-        mobile_banking: {
-          provider: mobileBankingProvider,
-          number: mobileBankingNumber,
-        },
+        mobile_banking: mobileAccounts,
       });
 
       const payload: Record<string, any> = {
@@ -337,21 +340,61 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
-                  {/* Mobile banking details */}
                   <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", padding: 16, background: "var(--surface)" }}>
                     <p style={{ fontSize: 11, fontWeight: 700, color: "var(--foreground-2)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 12 }}>Mobile Banking Payments</p>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                      <div>
-                        <label style={labelStyle} htmlFor="mobile-banking-provider">Provider</label>
-                        <select id="mobile-banking-provider" className="input-base" value={mobileBankingProvider} onChange={(e) => setMobileBankingProvider(e.target.value)}>
-                          <option value="bKash">bKash</option>
-                          <option value="Nagad">Nagad</option>
-                          <option value="Rocket">Rocket</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label style={labelStyle} htmlFor="mobile-banking-number">Number</label>
-                        <input id="mobile-banking-number" className="input-base" value={mobileBankingNumber} onChange={(e) => setMobileBankingNumber(e.target.value)} placeholder="01XXXXXXXXX" />
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                      {mobileAccounts.map((acc, idx) => (
+                        <div key={acc.id || idx} style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr 1fr auto", gap: 10, alignItems: "center", padding: "8px 12px", background: "var(--background)", borderRadius: "var(--radius-md)", border: "1px solid var(--border)" }}>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)" }}>{acc.provider}</span>
+                          <span style={{ fontSize: 13, fontFamily: "monospace", color: "var(--foreground)" }}>{acc.number}</span>
+                          <span style={{ fontSize: 11, padding: "2px 6px", background: "var(--accent-subtle)", color: "var(--accent)", borderRadius: 4, fontWeight: 600, textTransform: "uppercase", width: "fit-content" }}>{acc.type}</span>
+                          <button
+                            type="button"
+                            className="btn btn-ghost"
+                            style={{ padding: 4, color: "#D14F4F", cursor: "pointer" }}
+                            onClick={() => setMobileAccounts(prev => prev.filter((_, i) => i !== idx))}
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      ))}
+
+                      {/* Add Form Row */}
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr 1fr auto", gap: 10, alignItems: "flex-end", marginTop: 8, borderTop: "1px dashed var(--border)", paddingTop: 12 }}>
+                        <div>
+                          <label style={labelStyle}>Provider</label>
+                          <select className="input-base" value={newProvider} onChange={(e) => setNewProvider(e.target.value)}>
+                            <option value="bKash">bKash</option>
+                            <option value="Nagad">Nagad</option>
+                            <option value="Rocket">Rocket</option>
+                            <option value="Upay">Upay</option>
+                            <option value="CellFin">CellFin</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label style={labelStyle}>Number</label>
+                          <input className="input-base" placeholder="01XXXXXXXXX" value={newNumber} onChange={(e) => setNewNumber(e.target.value)} />
+                        </div>
+                        <div>
+                          <label style={labelStyle}>Type</label>
+                          <select className="input-base" value={newType} onChange={(e) => setNewType(e.target.value)}>
+                            <option value="Personal">Personal</option>
+                            <option value="Merchant">Merchant</option>
+                            <option value="Agent">Agent</option>
+                          </select>
+                        </div>
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          style={{ height: 36, padding: "0 12px", display: "flex", alignItems: "center", gap: 4, cursor: "pointer" }}
+                          onClick={() => {
+                            if (!newNumber) return;
+                            setMobileAccounts(prev => [...prev, { id: ID.unique(), provider: newProvider, number: newNumber, type: newType }]);
+                            setNewNumber("");
+                          }}
+                        >
+                          <Plus size={14} /> Add
+                        </button>
                       </div>
                     </div>
                   </div>

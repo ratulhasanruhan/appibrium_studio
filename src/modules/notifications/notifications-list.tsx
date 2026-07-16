@@ -1,16 +1,35 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Bell, Eye, EyeOff, Check, Loader2, ArrowRight } from "lucide-react";
-import type { Notification } from "@/types";
+import { Bell, Eye, EyeOff, Check, Loader2, ArrowRight, Plus, X, AlertCircle } from "lucide-react";
+import type { Notification, Client } from "@/types";
 import { formatRelativeTime } from "@/utils";
-import { getNotifications, markNotificationAsRead } from "@/services/notifications";
+import { getNotifications, markNotificationAsRead, createNotification } from "@/services/notifications";
+import { getClients } from "@/services/crm";
+import { sendCustomNotificationEmail } from "@/services/email";
+import { sendCustomSMS } from "@/services/sms";
+import { account } from "@/lib/appwrite/client";
 import Link from "next/link";
 
 export function NotificationsList() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading]             = useState(true);
   const [filter, setFilter]               = useState<"all" | "unread">("unread");
+
+  // Admin and user states
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isAdmin, setIsAdmin]         = useState(false);
+  const [clients, setClients]         = useState<Client[]>([]);
+  const [showModal, setShowModal]     = useState(false);
+
+  // Form states
+  const [newTitle, setNewTitle]       = useState("");
+  const [newMessage, setNewMessage]   = useState("");
+  const [targetUser, setTargetUser]   = useState("all");
+  const [sendMail, setSendMail]       = useState(true);
+  const [sendSms, setSendSms]         = useState(false);
+  const [saving, setSaving]           = useState(false);
+  const [saveStatus, setSaveStatus]   = useState<"idle" | "saving" | "saved" | "error">("idle");
 
   async function loadData() {
     setLoading(true);
@@ -26,17 +45,38 @@ export function NotificationsList() {
 
   useEffect(() => {
     loadData();
+
+    async function checkUserRole() {
+      try {
+        const user = await account.get();
+        setCurrentUser(user);
+        const labels = user.labels || [];
+        const admin = labels.length > 0 && ["owner", "admin", "administrator", "manager", "finance"].includes(labels[0].toLowerCase());
+        setIsAdmin(admin);
+
+        if (admin) {
+          const list = await getClients();
+          setClients(list);
+        }
+      } catch (err) {
+        console.error("[NotificationsList] checkUserRole error:", err);
+      }
+    }
+    checkUserRole();
   }, []);
 
   const filtered = notifications.filter((n) => {
-    if (filter === "unread") return !n.is_read;
-    return true;
+    // Standard unread filtering
+    if (filter === "unread" && n.is_read) return false;
+    
+    // User role scoping
+    if (isAdmin) return true; // Admin views all logs
+    return n.user_id === "all" || n.user_id === currentUser?.$id;
   });
 
   async function handleMarkRead(id: string) {
     const result = await markNotificationAsRead(id);
     if (result.success) {
-      // update local state
       setNotifications((prev) =>
         prev.map((n) => (n.$id === id ? { ...n, is_read: true } : n))
       );
@@ -48,6 +88,97 @@ export function NotificationsList() {
     await Promise.all(unread.map((n) => markNotificationAsRead(n.$id)));
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
   }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newTitle || !newMessage) return;
+    setSaving(true);
+    setSaveStatus("saving");
+
+    try {
+      if (targetUser === "all") {
+        // 1. Create a single broadcast notification in Appwrite
+        await createNotification({
+          user_id: "all",
+          title: newTitle,
+          message: newMessage,
+          type: "info",
+          is_read: false,
+        });
+
+        // 2. Loop clients and dispatch mail/SMS
+        await Promise.all(
+          clients.map(async (c) => {
+            if (sendMail && c.email) {
+              try {
+                await sendCustomNotificationEmail(c.email, c.name, newTitle, newMessage);
+              } catch (emailErr) {
+                console.error("Email send failed to client:", c.email, emailErr);
+              }
+            }
+            if (sendSms && c.phone) {
+              try {
+                await sendCustomSMS(c.phone, newTitle, newMessage);
+              } catch (smsErr) {
+                console.error("SMS send failed to client:", c.phone, smsErr);
+              }
+            }
+          })
+        );
+      } else {
+        const targetCli = clients.find((c) => c.$id === targetUser);
+        if (targetCli) {
+          // 1. Create client-scoped database notification entry
+          await createNotification({
+            user_id: targetCli.$id,
+            title: newTitle,
+            message: newMessage,
+            type: "info",
+            is_read: false,
+          });
+
+          // 2. Outbound Resend Email
+          if (sendMail && targetCli.email) {
+            await sendCustomNotificationEmail(targetCli.email, targetCli.name, newTitle, newMessage);
+          }
+
+          // 3. Outbound SMS
+          if (sendSms && targetCli.phone) {
+            await sendCustomSMS(targetCli.phone, newTitle, newMessage);
+          }
+        }
+      }
+
+      setSaveStatus("saved");
+      setNewTitle("");
+      setNewMessage("");
+      setTargetUser("all");
+      setSendMail(true);
+      setSendSms(false);
+
+      await loadData();
+
+      setTimeout(() => {
+        setShowModal(false);
+        setSaveStatus("idle");
+      }, 1000);
+    } catch (err) {
+      console.error("[NotificationsList] submit error:", err);
+      setSaveStatus("error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const labelStyle: React.CSSProperties = {
+    display: "block",
+    fontSize: 11,
+    fontWeight: 600,
+    color: "var(--foreground-muted)",
+    marginBottom: 6,
+    textTransform: "uppercase",
+    letterSpacing: "0.05em",
+  };
 
   return (
     <div style={{ maxWidth: 680, margin: "0 auto" }}>
@@ -77,15 +208,28 @@ export function NotificationsList() {
             }}
           >All Alerts</button>
         </div>
-        {notifications.some((n) => !n.is_read) && (
-          <button
-            className="btn btn-ghost"
-            style={{ fontSize: 11, padding: "4px 8px" }}
-            onClick={handleMarkAllRead}
-          >
-            <Check size={12} /> Mark all as read
-          </button>
-        )}
+
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {isAdmin && (
+            <button
+              className="btn btn-primary"
+              style={{ fontSize: 12, padding: "6px 14px" }}
+              onClick={() => setShowModal(true)}
+            >
+              <Plus size={13} /> Create Notification
+            </button>
+          )}
+
+          {notifications.some((n) => !n.is_read) && (
+            <button
+              className="btn btn-ghost"
+              style={{ fontSize: 11, padding: "4px 8px" }}
+              onClick={handleMarkAllRead}
+            >
+              <Check size={12} /> Mark all as read
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Notifications List */}
@@ -126,7 +270,7 @@ export function NotificationsList() {
               </div>
               <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
                 {!n.is_read && (
-                  <button className="btn btn-ghost" style={{ padding: 4 }} title="Mark as Read" onClick={() => handleMarkRead(n.$id)}>
+                  <button className="btn btn-ghost" style={{ padding: 4, cursor: "pointer" }} title="Mark as Read" onClick={() => handleMarkRead(n.$id)}>
                     <EyeOff size={13} />
                   </button>
                 )}
@@ -140,6 +284,112 @@ export function NotificationsList() {
           ))
         )}
       </div>
+
+      {/* Creation Modal */}
+      {showModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(13,35,23,0.4)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 16 }}>
+          <div className="card" style={{ width: "100%", maxWidth: 480, padding: 24, boxShadow: "var(--shadow-xl)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+              <h3 style={{ fontSize: 14, fontWeight: 700, color: "var(--foreground)", fontFamily: "var(--font-heading)" }}>Create New Alert Notification</h3>
+              <button className="btn btn-ghost" style={{ padding: 4, cursor: "pointer" }} onClick={() => setShowModal(false)}>
+                <X size={16} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div>
+                <label style={labelStyle} htmlFor="notif-title">Title / Headline *</label>
+                <input
+                  id="notif-title"
+                  className="input-base"
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  placeholder="e.g. Server Maintenance Scheduled"
+                  required
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle} htmlFor="notif-message">Message Details *</label>
+                <textarea
+                  id="notif-message"
+                  className="input-base"
+                  style={{ minHeight: 80, resize: "vertical" }}
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder="Provide details about the alert..."
+                  required
+                />
+              </div>
+
+              <div>
+                <label style={labelStyle} htmlFor="notif-target">Target Audience *</label>
+                <select
+                  id="notif-target"
+                  className="input-base"
+                  value={targetUser}
+                  onChange={(e) => setTargetUser(e.target.value)}
+                >
+                  <option value="all">All Clients (Broadcast)</option>
+                  {clients.map((c) => (
+                    <option key={c.$id} value={c.$id}>{c.name} {c.email ? `— ${c.email}` : ""}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Delivery Channels checkboxes */}
+              <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: "12px 14px", background: "var(--background-alt)", marginTop: 4 }}>
+                <p style={{ fontSize: 10, fontWeight: 700, color: "var(--foreground-muted)", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 10 }}>Delivery channels</p>
+                <div style={{ display: "flex", gap: 20 }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--foreground)", cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      checked={sendMail}
+                      onChange={(e) => setSendMail(e.target.checked)}
+                      style={{ cursor: "pointer" }}
+                    />
+                    Send Email (Resend)
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, color: "var(--foreground)", cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      checked={sendSms}
+                      onChange={(e) => setSendSms(e.target.checked)}
+                      style={{ cursor: "pointer" }}
+                    />
+                    Send SMS Alert
+                  </label>
+                </div>
+              </div>
+
+              {saveStatus === "error" && (
+                <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 12px", background: "#FEF2F2", border: "1px solid #FAC5C5", borderRadius: "var(--radius-md)", fontSize: 12, color: "#D14F4F" }}>
+                  <AlertCircle size={14} /> Failed to submit notification.
+                </div>
+              )}
+
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 10 }}>
+                <button type="button" className="btn btn-secondary" style={{ cursor: "pointer" }} onClick={() => setShowModal(false)}>Cancel</button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ minWidth: 100, cursor: "pointer" }}
+                  disabled={saving || !newTitle || !newMessage}
+                >
+                  {saving ? (
+                    <><Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> Sending...</>
+                  ) : saveStatus === "saved" ? (
+                    <><Check size={13} /> Dispatched!</>
+                  ) : (
+                    "Send Alert"
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );

@@ -215,6 +215,19 @@ export function ProposalEditor({ id }: ProposalEditorProps) {
       setSaving(false);
       if (result.success && result.data) {
         setPublicToken(result.data.public_token);
+        try {
+          const selectedCli = clients.find((c) => c.$id === selectedClientId);
+          if (selectedCli && selectedCli.email) {
+            await sendProposalNotification(
+              selectedCli.email,
+              selectedCli.name,
+              title,
+              token
+            );
+          }
+        } catch (emailErr) {
+          console.error("Failed to send proposal notification email:", emailErr);
+        }
         alert("Proposal saved successfully!");
       } else {
         alert("Error: " + result.error);

@@ -56,7 +56,7 @@ export async function sendSMS(payload: SMSPayload): Promise<SMSResult> {
       messageContent: payload.message,
     });
 
-    const url = `${apiUrl}?${params.toString()}`;
+    const url = `${apiUrl}?${params.toString().replace(/\+/g, "%20")}`;
 
     // Temporarily bypass certificate rejection for IP-based HTTPS endpoints
     process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
@@ -99,8 +99,8 @@ export async function sendProposalSMS(
   token: string,
   clientName: string
 ): Promise<SMSResult> {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://studio.appibrium.com";
-  const url    = `${appUrl}/public/proposal/${token}`;
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://studio.appibrium.com").trim();
+  const url    = `${appUrl}/public/proposal/${token}`.trim();
 
   const message =
     `Dear ${clientName}, Appibrium has shared a proposal with you. ` +
@@ -120,8 +120,8 @@ export async function sendInvoiceSMS(
   clientName: string,
   amount: string
 ): Promise<SMSResult> {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://studio.appibrium.com";
-  const url    = `${appUrl}/public/invoice/${token}`;
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "https://studio.appibrium.com").trim();
+  const url    = `${appUrl}/public/invoice/${token}`.trim();
 
   const message =
     `Dear ${clientName}, an invoice of ${amount} has been sent by Appibrium. ` +
@@ -129,4 +129,9 @@ export async function sendInvoiceSMS(
     `Ref: ${invoiceId}`;
 
   return sendSMS({ to: phone, message });
+}
+
+export async function sendCustomSMS(phone: string, title: string, message: string): Promise<SMSResult> {
+  const formattedMsg = `Alert: ${title} - ${message}`;
+  return sendSMS({ to: phone, message: formattedMsg });
 }
