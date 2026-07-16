@@ -210,18 +210,24 @@ function PublicProposalPortalContent() {
                 alignItems: "center",
                 gap: 6,
                 fontSize: 11,
-                color: "#FFFFFF",
+                color: "#FFD04D",
                 padding: "6px 12px",
-                background: "rgba(224, 169, 0, 0.2)",
+                background: "#08150E",
                 borderRadius: 6,
                 border: "1px solid #E0A900",
                 cursor: "pointer",
                 fontWeight: 600,
                 fontFamily: "system-ui, sans-serif",
-                transition: "background 0.12s"
+                transition: "all 0.12s"
               }}
-              onMouseEnter={(e) => e.currentTarget.style.background = "rgba(224, 169, 0, 0.35)"}
-              onMouseLeave={(e) => e.currentTarget.style.background = "rgba(224, 169, 0, 0.2)"}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = "#0E2419";
+                e.currentTarget.style.borderColor = "#FFD04D";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = "#08150E";
+                e.currentTarget.style.borderColor = "#E0A900";
+              }}
             >
               <Lock size={12} style={{ color: "#FFD04D" }} /> Required to Sign for Accept
             </button>
