@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Sparkles, ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
-import { databases, DB_ID, COLLECTIONS, ID } from "@/lib/appwrite/client";
+import { databases, DB_ID, COLLECTIONS, ID, account, Query } from "@/lib/appwrite/client";
 
 export default function InquiryRequestPage() {
   // Form fields
@@ -18,6 +18,7 @@ export default function InquiryRequestPage() {
 
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [isNewClientUser, setIsNewClientUser] = useState(false);
   const [error, setError] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
@@ -26,37 +27,53 @@ export default function InquiryRequestPage() {
     setError("");
 
     try {
-      // 1. Create client document
-      const clientRes = await databases.createDocument(
-        DB_ID,
-        COLLECTIONS.CLIENTS,
-        ID.unique(),
-        {
-          name: companyName,
-          legal_name: companyName,
-          email: email,
-          phone: phone,
-          status: "lead", // Created as lead
-        }
-      );
+      // Check if client document already exists with this email
+      const clientList = await databases.listDocuments(DB_ID, COLLECTIONS.CLIENTS, [
+        Query.equal("email", email.trim().toLowerCase()),
+        Query.limit(1)
+      ]);
 
-      const clientId = clientRes.$id;
+      let clientId = "";
+      let isNew = false;
 
-      // 2. Create contact document
-      await databases.createDocument(
-        DB_ID,
-        COLLECTIONS.CONTACTS,
-        ID.unique(),
-        {
-          client_id: clientId,
-          first_name: firstName,
-          last_name: lastName,
-          email: email,
-          phone: phone,
-          role: "Contact Person",
-          is_primary: true,
-        }
-      );
+      if (clientList.documents.length > 0) {
+        clientId = clientList.documents[0].$id;
+      } else {
+        isNew = true;
+        setIsNewClientUser(true);
+
+        // 1. Create client document
+        const clientRes = await databases.createDocument(
+          DB_ID,
+          COLLECTIONS.CLIENTS,
+          ID.unique(),
+          {
+            name: companyName.trim(),
+            legal_name: companyName.trim(),
+            email: email.trim().toLowerCase(),
+            phone: phone.trim(),
+            status: "lead", // Created as lead
+          }
+        );
+
+        clientId = clientRes.$id;
+
+        // 2. Create contact document
+        await databases.createDocument(
+          DB_ID,
+          COLLECTIONS.CONTACTS,
+          ID.unique(),
+          {
+            client_id: clientId,
+            first_name: firstName.trim(),
+            last_name: lastName.trim(),
+            email: email.trim().toLowerCase(),
+            phone: phone.trim(),
+            role: "Contact Person",
+            is_primary: true,
+          }
+        );
+      }
 
       // 3. Create draft proposal based on client's inquiry request
       const publicToken = "tok_" + Math.random().toString(36).substring(2, 10);
@@ -105,6 +122,16 @@ export default function InquiryRequestPage() {
         }
       );
 
+      // 5. Trigger magic URL token client-side if this is a new client
+      if (isNew) {
+        try {
+          const redirectUrl = window.location.origin + "/verify-magic-link";
+          await account.createMagicURLToken(ID.unique(), email.trim().toLowerCase(), redirectUrl);
+        } catch (authErr: any) {
+          console.error("Magic link generation failed:", authErr);
+        }
+      }
+
       setSubmitted(true);
     } catch (err: any) {
       console.error("Inquiry submission failed:", err);
@@ -125,6 +152,14 @@ export default function InquiryRequestPage() {
               Thank you, <strong>{firstName}</strong>. We have received your inquiry for <strong>{companyName}</strong>. 
               Our engineering team is already reviewing your details and will follow up shortly.
             </p>
+            {isNewClientUser && (
+              <div style={{ marginTop: 16, padding: 14, background: "var(--accent-subtle)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)", color: "var(--foreground)", fontSize: 12, display: "flex", flexDirection: "column", gap: 6, alignItems: "center" }}>
+                <strong style={{ color: "var(--accent)", display: "flex", alignItems: "center", gap: 4 }}>
+                  <Sparkles size={13} /> Access Link Sent
+                </strong>
+                <span style={{ lineHeight: 1.4 }}>We sent a login Magic Link to <strong>{email}</strong>. Check your inbox to access your client portal.</span>
+              </div>
+            )}
           </div>
           <div style={{ width: "100%", height: 1, background: "var(--border)" }} />
           <p style={{ fontSize: 11, color: "var(--foreground-faint)" }}>
@@ -134,6 +169,7 @@ export default function InquiryRequestPage() {
       </div>
     );
   }
+
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--background)", display: "flex", flexDirection: "column", padding: "40px 20px" }}>

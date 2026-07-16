@@ -10,6 +10,7 @@ import { createProposal } from "@/services/proposals";
 import { getClients } from "@/services/crm";
 import { createNotification } from "@/services/notifications";
 import { account, databases, DB_ID, COLLECTIONS, Query } from "@/lib/appwrite/client";
+import { sendProposalNotification } from "@/services/email";
 
 type InquiryWithClient = Inquiry & { client_name: string; client_email: string };
 
@@ -129,6 +130,20 @@ export function InquiriesList() {
         const updateResult = await updateInquiryStatus(inquiry.$id, "converted", proposalId);
         
         if (updateResult.success) {
+          // Send email notice to client about the new proposal
+          try {
+            if (inquiry.client_email) {
+              await sendProposalNotification(
+                inquiry.client_email,
+                inquiry.client_name,
+                `${inquiry.service} Proposal`,
+                publicToken
+              );
+            }
+          } catch (emailErr) {
+            console.error("Failed to send proposal notification email:", emailErr);
+          }
+
           setActiveInquiry(null);
           window.location.href = `/proposals/${proposalId}/edit`;
         } else {

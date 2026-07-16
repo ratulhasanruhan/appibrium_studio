@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Topbar } from "@/components/topbar";
-import { Receipt, Calendar, DollarSign, ArrowLeft, Loader2, Check, AlertCircle, ExternalLink, Users, FileText } from "lucide-react";
+import { Receipt, Calendar, DollarSign, ArrowLeft, Loader2, Check, AlertCircle, ExternalLink, Users, FileText, Smartphone } from "lucide-react";
 import Link from "next/link";
 import { getInvoice, updateInvoice, getInvoiceItems } from "@/services/invoices";
 import { getClient } from "@/services/crm";
@@ -10,6 +10,7 @@ import { getProject } from "@/services/projects";
 import type { Invoice, Client, InvoiceItem, Project } from "@/types";
 import { formatDate, formatCurrency } from "@/utils";
 import { useParams } from "next/navigation";
+import { sendInvoiceSMS } from "@/services/sms";
 
 const STATUS_BADGE: Record<string, string> = {
   draft:     "badge-draft",
@@ -33,6 +34,40 @@ export default function InvoiceDetailPage() {
   const [status, setStatus]   = useState<Invoice["status"]>("draft");
   const [updating, setUpdating] = useState(false);
   const [updateSuccess, setUpdateSuccess] = useState(false);
+
+  // SMS Notice State
+  const [smsSending, setSmsSending] = useState(false);
+  const [smsStatus, setSmsStatus]   = useState("");
+
+  async function handleSendSMS() {
+    if (!client || !client.phone) {
+      alert("This client does not have a phone number configured.");
+      return;
+    }
+    setSmsSending(true);
+    setSmsStatus("Sending...");
+    try {
+      const formattedAmount = formatCurrency(invoice!.total, invoice!.currency);
+      const res = await sendInvoiceSMS(
+        client.phone,
+        id,
+        invoice!.public_token,
+        client.name,
+        formattedAmount
+      );
+      if (res.success) {
+        setSmsStatus("SMS Sent!");
+      } else {
+        setSmsStatus("Failed to send.");
+      }
+    } catch (err: any) {
+      console.error("SMS notification failed:", err);
+      setSmsStatus("Failed to send.");
+    } finally {
+      setSmsSending(false);
+      setTimeout(() => setSmsStatus(""), 3000);
+    }
+  }
 
   useEffect(() => {
     async function load() {
@@ -261,15 +296,47 @@ export default function InvoiceDetailPage() {
 
             {/* Quick Actions */}
             <div className="card">
-              <h3 style={{ fontSize: 12, fontWeight: 700, fontFamily: "var(--font-heading)", marginBottom: 12 }}>Outbound Link</h3>
-              <a
-                href={`/public/invoice/${invoice.public_token}`}
-                target="_blank"
-                className="btn btn-ghost"
-                style={{ width: "100%", justifyContent: "center", fontSize: 11 }}
-              >
-                <ExternalLink size={12} /> Launch Client Portal
-              </a>
+              <h3 style={{ fontSize: 12, fontWeight: 700, fontFamily: "var(--font-heading)", marginBottom: 12 }}>Outbound Notice</h3>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <a
+                  href={`/public/invoice/${invoice.public_token}`}
+                  target="_blank"
+                  className="btn btn-ghost"
+                  style={{ width: "100%", justifyContent: "center", fontSize: 11 }}
+                >
+                  <ExternalLink size={12} /> Launch Client Portal
+                </a>
+
+                {client?.phone ? (
+                  <button
+                    onClick={handleSendSMS}
+                    className="btn btn-ghost"
+                    disabled={smsSending}
+                    style={{ width: "100%", justifyContent: "center", fontSize: 11 }}
+                  >
+                    {smsSending ? (
+                      <>
+                        <Loader2 size={12} style={{ animation: "spin 1s linear infinite", marginRight: 6 }} />
+                        Sending SMS...
+                      </>
+                    ) : smsStatus ? (
+                      <>
+                        <Check size={12} style={{ color: "#00965C", marginRight: 6 }} />
+                        {smsStatus}
+                      </>
+                    ) : (
+                      <>
+                        <Smartphone size={12} style={{ marginRight: 6 }} />
+                        Send SMS Notice
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  <div style={{ fontSize: 10, color: "var(--foreground-muted)", textAlign: "center", padding: "4px 0" }}>
+                    No client phone for SMS notices.
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

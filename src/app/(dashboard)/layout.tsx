@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { account } from "@/lib/appwrite/client";
+import { account, databases, DB_ID, COLLECTIONS, Query } from "@/lib/appwrite/client";
 import { Sidebar } from "@/components/sidebar";
+import { ProfileCompleteModal } from "@/components/profile-complete-modal";
 
 export default function DashboardLayout({
   children,
@@ -10,19 +11,60 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [loading, setLoading] = useState(true);
+  const [clientDoc, setClientDoc] = useState<any>(null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   useEffect(() => {
     // Check if Appwrite is initialized and user has an active session
     account
       .get()
-      .then(() => {
-        setLoading(false);
+      .then(async (user) => {
+        try {
+          const labels = (user as any).labels || [];
+          const isAdmin = labels.some((l: string) => 
+            ["owner", "admin", "administrator", "manager", "finance"].includes(l.toLowerCase())
+          );
+
+          if (!isAdmin) {
+            // Check if client document exists with their email
+            const clientsList = await databases.listDocuments(DB_ID, COLLECTIONS.CLIENTS, [
+              Query.equal("email", user.email.trim().toLowerCase()),
+              Query.limit(1)
+            ]);
+
+            if (clientsList.documents.length > 0) {
+              const doc = clientsList.documents[0];
+              setClientDoc(doc);
+
+              const hasSkipped = sessionStorage.getItem("hasSkippedProfileComplete");
+              const isMissingData = !doc.phone || !doc.name || !doc.legal_name || !doc.website || !doc.address;
+
+              if (isMissingData && hasSkipped !== "true") {
+                setShowProfileModal(true);
+              }
+            }
+          }
+        } catch (err) {
+          console.error("[DashboardLayout] Error checking client profile data:", err);
+        } finally {
+          setLoading(false);
+        }
       })
       .catch((err) => {
         console.warn("[DashboardLayout] Auth check failed, redirecting to login:", err);
         window.location.href = "/login";
       });
   }, []);
+
+  function handleProfileUpdate(updated: any) {
+    setClientDoc(updated);
+    setShowProfileModal(false);
+  }
+
+  function handleProfileSkip() {
+    sessionStorage.setItem("hasSkippedProfileComplete", "true");
+    setShowProfileModal(false);
+  }
 
   if (loading) {
     return (
@@ -60,6 +102,14 @@ export default function DashboardLayout({
     <div style={{ display: "flex", minHeight: "100vh" }}>
       <Sidebar />
       <main className="main-layout">{children}</main>
+
+      {showProfileModal && clientDoc && (
+        <ProfileCompleteModal
+          client={clientDoc}
+          onUpdate={handleProfileUpdate}
+          onClose={handleProfileSkip}
+        />
+      )}
     </div>
   );
 }
