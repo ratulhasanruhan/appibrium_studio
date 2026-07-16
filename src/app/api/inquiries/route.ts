@@ -128,11 +128,11 @@ export async function POST(request: Request) {
       ID.unique(),
       {
         user_id: "admin",
-        title: "New Quote Request",
-        message: `${name} has submitted a quote request for "${service}".`,
+        title: "New Inquiry Submitted",
+        message: `${name} has submitted an inquiry for "${service}".`,
         type: "project_updated",
         is_read: false,
-        link: `/quotes`
+        link: `/inquiries`
       }
     );
 

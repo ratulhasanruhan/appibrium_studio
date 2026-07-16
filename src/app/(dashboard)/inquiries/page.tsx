@@ -2,17 +2,17 @@
 
 import React from "react";
 import { Topbar } from "@/components/topbar";
-import { QuotesList } from "@/modules/quotes/quotes-list";
+import { InquiriesList } from "@/modules/inquiries/inquiries-list";
 
-export default function QuotesPage() {
+export default function InquiriesPage() {
   return (
     <>
       <Topbar
-        title="Quote Requests"
+        title="Inquiry Requests"
         subtitle="Manage landing page project requests and client inquiries"
       />
       <div className="page-content">
-        <QuotesList />
+        <InquiriesList />
       </div>
     </>
   );

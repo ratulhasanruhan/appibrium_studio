@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Sparkles, ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
 import { databases, DB_ID, COLLECTIONS, ID } from "@/lib/appwrite/client";
 
-export default function QuoteRequestPage() {
+export default function InquiryRequestPage() {
   // Form fields
   const [companyName, setCompanyName] = useState("");
   const [firstName, setFirstName] = useState("");
@@ -58,10 +58,10 @@ export default function QuoteRequestPage() {
         }
       );
 
-      // 3. Create draft proposal based on client's quote request
+      // 3. Create draft proposal based on client's inquiry request
       const publicToken = "tok_" + Math.random().toString(36).substring(2, 10);
       const draftContent = `
-        <h2>1. Quote Request Executive Summary</h2>
+        <h2>1. Inquiry Executive Summary</h2>
         <p>Requested by <strong>${firstName} ${lastName}</strong> representing <strong>${companyName}</strong>.</p>
         <p><strong>Project Interest:</strong> ${projectDesc}</p>
 
@@ -72,7 +72,7 @@ export default function QuoteRequestPage() {
         </ul>
 
         <h2>3. Next Steps (Action Required)</h2>
-        <p>This draft proposal has been auto-generated from the client quote submission. The Appibrium engineering team will refine this document, add technical architecture specs, and send the finalized proposal back to the client.</p>
+        <p>This draft proposal has been auto-generated from the client inquiry submission. The Appibrium engineering team will refine this document, add technical architecture specs, and send the finalized proposal back to the client.</p>
       `;
 
       await databases.createDocument(
@@ -97,17 +97,17 @@ export default function QuoteRequestPage() {
         ID.unique(),
         {
           user_id: "admin",
-          title: "New Quote Request Received",
-          message: `${companyName} has requested a quote for "${projectTitle}". A draft proposal has been generated.`,
-          type: "quote",
+          title: "New Inquiry Received",
+          message: `${companyName} has submitted an inquiry for "${projectTitle}". A draft proposal has been generated.`,
+          type: "project_updated",
           is_read: false,
-          link: `/crm/${clientId}`,
+          link: `/inquiries`,
         }
       );
 
       setSubmitted(true);
     } catch (err: any) {
-      console.error("Quote request submission failed:", err);
+      console.error("Inquiry submission failed:", err);
       setError(err.message || "Failed to submit request. Please try again.");
     } finally {
       setLoading(false);
@@ -120,9 +120,9 @@ export default function QuoteRequestPage() {
         <div className="card" style={{ maxWidth: 480, width: "100%", textAlign: "center", padding: "40px 30px", display: "flex", flexDirection: "column", alignItems: "center", gap: 20 }}>
           <CheckCircle2 size={48} style={{ color: "var(--accent)" }} />
           <div>
-            <h1 style={{ fontSize: 20, fontWeight: 800, fontFamily: "var(--font-heading)" }}>Quote Request Submitted!</h1>
+            <h1 style={{ fontSize: 20, fontWeight: 800, fontFamily: "var(--font-heading)" }}>Inquiry Submitted!</h1>
             <p style={{ fontSize: 13, color: "var(--foreground-muted)", marginTop: 8, lineHeight: 1.6 }}>
-              Thank you, <strong>{firstName}</strong>. We have received your request for <strong>{companyName}</strong>. 
+              Thank you, <strong>{firstName}</strong>. We have received your inquiry for <strong>{companyName}</strong>. 
               Our engineering team is already reviewing your details and will follow up shortly.
             </p>
           </div>
@@ -143,7 +143,7 @@ export default function QuoteRequestPage() {
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", gap: 10 }}>
           <img src="/branding_assets/logos/lockup/lockup_w4_light.svg" alt="Appibrium" style={{ height: 28 }} />
           <h1 style={{ fontSize: 22, fontWeight: 800, fontFamily: "var(--font-heading)", color: "var(--foreground)" }}>
-            Request a Software Proposal Quote
+            Submit a Project Inquiry
           </h1>
           <p style={{ fontSize: 13, color: "var(--foreground-muted)", maxWidth: 460 }}>
             Submit your project details. Our interactive system will register your profile and draft a custom technical proposal structure instantly.
@@ -289,7 +289,7 @@ export default function QuoteRequestPage() {
               {loading ? (
                 <><Loader2 size={15} style={{ animation: "spin 1s linear infinite" }} /> Submitting Request...</>
               ) : (
-                <>Submit Quote Request <ArrowRight size={15} /></>
+                <>Submit Inquiry <ArrowRight size={15} /></>
               )}
             </button>
 

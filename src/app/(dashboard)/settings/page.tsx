@@ -262,7 +262,7 @@ export default function SettingsPage() {
             {activeTab === "company" && (
               <div>
                 <h2 style={{ fontSize: 14, fontWeight: 600, fontFamily: "var(--font-heading)", marginBottom: 4 }}>Company Workspace Settings</h2>
-                <p style={{ fontSize: 12, color: "var(--foreground-muted)", marginBottom: 20 }}>Configure your brand details used on public quotes and templates.</p>
+                <p style={{ fontSize: 12, color: "var(--foreground-muted)", marginBottom: 20 }}>Configure your brand details used on proposals, invoices, and templates.</p>
                 <div style={{ display: "flex", flexDirection: "column", gap: 14, maxWidth: 520 }}>
                   <div>
                     <label style={labelStyle} htmlFor="company-name">Legal Business Name</label>

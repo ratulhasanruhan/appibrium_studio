@@ -31,7 +31,7 @@ interface NavItem {
 const primaryNav: NavItem[] = [
   { label: "Dashboard",    href: "/dashboard",    icon: LayoutDashboard },
   { label: "CRM",          href: "/crm",          icon: Users },
-  { label: "Quotes",       href: "/quotes",       icon: ClipboardList },
+  { label: "Inquiries",    href: "/inquiries",    icon: ClipboardList },
   { label: "Projects",     href: "/projects",     icon: FolderKanban },
   { label: "Proposals",    href: "/proposals",    icon: FileText },
   { label: "Invoices",     href: "/invoices",     icon: Receipt },
