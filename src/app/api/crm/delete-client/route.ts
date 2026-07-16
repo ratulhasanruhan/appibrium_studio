@@ -29,7 +29,11 @@ export async function POST(request: Request) {
           console.log(`[Delete Client API] Deleted Appwrite Auth user ${authUserId} for email ${email}`);
         }
       } catch (authErr: any) {
-        console.error(`[Delete Client API] Appwrite Auth user deletion warning:`, authErr.message);
+        console.error(`[Delete Client API] Appwrite Auth user deletion error:`, authErr);
+        return NextResponse.json({
+          success: false,
+          error: `Appwrite Auth Deletion Error: ${authErr.message || "Access Denied"}. Make sure APPWRITE_API_KEY is correctly set in your live environment variables with 'users.write' scope.`
+        }, { status: 500 });
       }
     }
 

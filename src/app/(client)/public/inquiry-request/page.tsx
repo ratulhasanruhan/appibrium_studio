@@ -27,49 +27,28 @@ export default function InquiryRequestPage() {
     setError("");
 
     try {
-      // Check if client document already exists with this email
-      const clientList = await databases.listDocuments(DB_ID, COLLECTIONS.CLIENTS, [
-        Query.equal("email", email.trim().toLowerCase()),
-        Query.limit(1)
-      ]);
+      // 1. Call register API to create/verify client, contact, and auth user securely on the server!
+      const registerRes = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyName: companyName.trim(),
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          email: email.trim().toLowerCase(),
+          phone: phone.trim(),
+        }),
+      });
 
-      let clientId = "";
-      let isNew = false;
+      const registerData = await registerRes.json();
+      if (!registerRes.ok || !registerData.success) {
+        throw new Error(registerData.error || "Failed to register client.");
+      }
 
-      if (clientList.documents.length > 0) {
-        clientId = clientList.documents[0].$id;
-      } else {
-        isNew = true;
+      const clientId = registerData.clientId;
+      const isNew = registerData.isNew;
+      if (isNew) {
         setIsNewClientUser(true);
-
-        // Call register API to create client, contact, and auth user securely on the server!
-        const registerRes = await fetch("/api/auth/register", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            companyName: companyName.trim(),
-            firstName: firstName.trim(),
-            lastName: lastName.trim(),
-            email: email.trim().toLowerCase(),
-            phone: phone.trim(),
-          }),
-        });
-
-        const registerData = await registerRes.json();
-        if (!registerRes.ok || !registerData.success) {
-          throw new Error(registerData.error || "Failed to register client.");
-        }
-
-        // Fetch the newly created client document ID
-        const checkClientList = await databases.listDocuments(DB_ID, COLLECTIONS.CLIENTS, [
-          Query.equal("email", email.trim().toLowerCase()),
-          Query.limit(1)
-        ]);
-        if (checkClientList.documents.length > 0) {
-          clientId = checkClientList.documents[0].$id;
-        } else {
-          throw new Error("Client document not found after registration.");
-        }
       }
 
       // 3. Create draft proposal based on client's inquiry request

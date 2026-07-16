@@ -11,11 +11,40 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "Missing required fields." }, { status: 400 });
     }
 
-    console.log("[Register API] APPWRITE_API_KEY length:", process.env.APPWRITE_API_KEY?.length || 0);
     const cleanEmail = email.trim().toLowerCase();
-    const { databases } = createAdminClient();
+    const { databases, users } = createAdminClient();
 
-    // 1. Check if client document already exists in DB
+    let isNewUserCreated = false;
+
+    // 1. Ensure Appwrite Auth user exists (or create it) FIRST
+    try {
+      const userList = await users.list([
+        Query.equal("email", cleanEmail)
+      ]);
+
+      if (userList.users.length === 0) {
+        // Create user account in Appwrite Auth system
+        await users.create(
+          ID.unique(),
+          cleanEmail,
+          undefined, // phone
+          undefined, // password
+          `${firstName.trim()} ${lastName.trim()}`.trim()
+        );
+        isNewUserCreated = true;
+        console.log("[Register API] Successfully created Appwrite Auth user for:", cleanEmail);
+      } else {
+        console.log("[Register API] Appwrite Auth user already exists for:", cleanEmail);
+      }
+    } catch (authErr: any) {
+      console.error("[Register API] Appwrite Auth creation failed:", authErr);
+      return NextResponse.json({
+        success: false,
+        error: `Appwrite Auth Error: ${authErr.message || "Access Denied"}. Please check that APPWRITE_API_KEY is correctly set in your live environment variables with 'users.write' and 'users.read' scopes.`
+      }, { status: 500 });
+    }
+
+    // 2. Check if client document already exists in DB
     const clientList = await databases.listDocuments(DB_ID, COLLECTIONS.CLIENTS, [
       Query.equal("email", cleanEmail),
     ]);
@@ -44,28 +73,14 @@ export async function POST(request: Request) {
         role: "Primary Contact",
         is_primary: true,
       });
-
-      // Create user account in Appwrite Auth system
-      try {
-        const { users } = createAdminClient();
-        await users.create(
-          ID.unique(),
-          cleanEmail,
-          undefined, // phone (keep undefined to avoid parsing/formatting validation issues)
-          undefined, // password (blank for magic links)
-          `${firstName.trim()} ${lastName.trim()}`.trim()
-        );
-      } catch (authErr: any) {
-        // Appwrite code 409 means user already exists in Auth, which is safe to ignore
-        if (authErr.code === 409) {
-          console.log("[Register API] User already exists in Auth system, skipping creation.");
-        } else {
-          throw authErr;
-        }
-      }
+      isNewUserCreated = true;
+      console.log("[Register API] Successfully created database records for new client.");
+    } else {
+      clientId = clientList.documents[0].$id;
+      console.log("[Register API] Database client records already exist.");
     }
 
-    return NextResponse.json({ success: true, message: "Client database record ready." });
+    return NextResponse.json({ success: true, clientId, isNew: isNewUserCreated });
   } catch (error: any) {
     console.error("[Register API] Error:", error);
     return NextResponse.json({ success: false, error: error.message || "An unexpected error occurred." }, { status: 500 });
