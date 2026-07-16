@@ -36,7 +36,10 @@ export async function sendEmail({
         "Content-Type": "application/json",
         "Authorization": `Bearer ${apiKey}`,
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        ...payload,
+        from: payload.from.includes("onboarding@resend.dev") ? "Appibrium <onboarding@resend.dev>" : payload.from,
+      }),
     });
 
     if (!response.ok) {
@@ -58,7 +61,7 @@ export async function sendProjectNotification(clientEmail: string, clientName: s
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
       <h2 style="color: #0d2317; font-family: sans-serif; font-size: 18px; margin-bottom: 12px;">Hello ${clientName},</h2>
-      <p style="font-size: 14px; color: #334155; line-height: 1.5; margin-bottom: 20px;">We are excited to inform you that a new project has been initialized for you at Appibrium Studio.</p>
+      <p style="font-size: 14px; color: #334155; line-height: 1.5; margin-bottom: 20px;">We are excited to inform you that a new project has been initialized for you at Appibrium.</p>
       <div style="background: #f4fbf7; padding: 16px; border-radius: 6px; margin: 20px 0; border: 1px solid #d6ede1;">
         <p style="margin: 0; font-size: 12px; font-weight: 700; color: #6b8f7c; text-transform: uppercase; letter-spacing: 0.05em;">Project Title:</p>
         <p style="margin: 4px 0 0 0; color: #0d2317; font-size: 16px; font-weight: 700;">${projectName}</p>
@@ -92,7 +95,7 @@ export async function sendInvoiceNotification(clientEmail: string, clientName: s
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
       <h2 style="color: #0d2317; font-family: sans-serif; font-size: 18px; margin-bottom: 12px;">Hello ${clientName},</h2>
-      <p style="font-size: 14px; color: #334155; line-height: 1.5; margin-bottom: 20px;">An invoice has been generated for your project at Appibrium Studio. A copy has been attached to this email.</p>
+      <p style="font-size: 14px; color: #334155; line-height: 1.5; margin-bottom: 20px;">An invoice has been generated for your project at Appibrium. A copy has been attached to this email.</p>
       <div style="background: #f4fbf7; padding: 16px; border-radius: 6px; margin: 20px 0; border: 1px solid #d6ede1;">
         <p style="margin: 0; font-size: 12px; font-weight: 700; color: #6b8f7c; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px;">Invoice details:</p>
         <p style="margin: 4px 0; color: #0d2317; font-size: 14px;">Title: <strong>${invoiceTitle}</strong></p>
@@ -155,7 +158,7 @@ export async function sendCustomNotificationEmail(
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
       <h2 style="color: #0d2317; font-family: sans-serif; font-size: 18px; margin-bottom: 12px;">Hello ${clientName},</h2>
-      <p style="font-size: 14px; color: #334155; line-height: 1.5; margin-bottom: 20px;">You have received a new notification alert from Appibrium Studio:</p>
+      <p style="font-size: 14px; color: #334155; line-height: 1.5; margin-bottom: 20px;">You have received a new notification alert from Appibrium:</p>
       <div style="background: #f4fbf7; padding: 16px; border-radius: 6px; margin: 20px 0; border: 1px solid #d6ede1;">
         <p style="margin: 0; font-size: 14px; font-weight: 700; color: #0d2317; margin-bottom: 6px;">${title}</p>
         <p style="margin: 0; color: #334155; font-size: 13px; line-height: 1.5;">${message}</p>
