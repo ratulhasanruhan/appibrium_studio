@@ -38,7 +38,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { databases } = createAdminClient();
+    const { databases, users } = createAdminClient();
 
     // 3. Email rate-limiting / spam protection
     // Check if client already exists with this email
@@ -75,24 +75,48 @@ export async function POST(request: Request) {
       }
     }
 
-    // 4. Create Client if not found
+    // 4. Create Client if not found (in DB and Appwrite Auth)
     if (!isExistingClient) {
+      const cleanEmail = email.trim().toLowerCase();
+      const parts = name.trim().split(/\s+/);
+      const firstName = parts[0] || "";
+      const lastName = parts.slice(1).join(" ") || "";
+
+      // A. Create Appwrite Auth user FIRST
+      try {
+        await users.create(
+          ID.unique(),
+          cleanEmail,
+          undefined, // phone
+          undefined, // password (blank for magic links)
+          name.trim()
+        );
+        console.log(`[Inquiries API] Created Appwrite Auth account for: ${cleanEmail}`);
+      } catch (authErr: any) {
+        // Appwrite code 409 means user already exists in Auth, which is fine
+        if (authErr.code !== 409) {
+          console.error("[Inquiries API] Auth account creation failed:", authErr);
+          return NextResponse.json(
+            { success: false, error: `Auth Error: ${authErr.message || "Failed to create Auth account"}. Check API key scopes.` },
+            { status: 500, headers: CORS_HEADERS }
+          );
+        }
+      }
+
+      // B. Create client document in DB
       const clientDoc = await databases.createDocument(
         DB_ID,
         COLLECTIONS.CLIENTS,
         ID.unique(),
         {
           name: name.trim(),
-          email: email.trim().toLowerCase(),
+          email: cleanEmail,
           status: "lead"
         }
       );
       clientId = clientDoc.$id;
 
-      // Create contact document
-      const parts = name.trim().split(/\s+/);
-      const firstName = parts[0] || "";
-      const lastName = parts.slice(1).join(" ") || "";
+      // C. Create contact document in DB
       await databases.createDocument(
         DB_ID,
         COLLECTIONS.CONTACTS,
@@ -101,11 +125,39 @@ export async function POST(request: Request) {
           client_id: clientId,
           first_name: firstName,
           last_name: lastName,
-          email: email.trim().toLowerCase(),
+          email: cleanEmail,
           role: "Primary Contact",
           is_primary: true
         }
       );
+
+      // D. Trigger Magic URL token send via REST API POST request on the server side
+      try {
+        const endpoint = process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT || "https://cloud.appwrite.io/v1";
+        const projectId = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID || "";
+        const redirectUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/verify-magic-link`;
+
+        const magicRes = await fetch(`${endpoint}/account/tokens/magic-url`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Appwrite-Project": projectId,
+          },
+          body: JSON.stringify({
+            userId: "unique()",
+            email: cleanEmail,
+            url: redirectUrl,
+          }),
+        });
+
+        if (!magicRes.ok) {
+          const magicData = await magicRes.json();
+          throw new Error(magicData.message || "Appwrite Magic Link REST call failed");
+        }
+        console.log(`[Inquiries API] Sent Magic Link via Appwrite REST for email ${cleanEmail}`);
+      } catch (magicErr: any) {
+        console.error("[Inquiries API] Magic Link dispatch warning:", magicErr.message);
+      }
     }
 
     // 5. Create Quote (status: "pending")
