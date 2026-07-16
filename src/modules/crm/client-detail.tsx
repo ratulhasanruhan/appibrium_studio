@@ -27,6 +27,7 @@ import { getProposals } from "@/services/proposals";
 import { getInvoices } from "@/services/invoices";
 import type { Client, Contact, Note, Project, Proposal, Invoice } from "@/types";
 import { formatDate, formatCurrency, initials } from "@/utils";
+import { EditClientModal } from "@/components/edit-client-modal";
 
 interface ClientDetailProps {
   id: string;
@@ -41,6 +42,7 @@ export function ClientDetail({ id }: ClientDetailProps) {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"projects" | "proposals" | "invoices" | "notes" | "contacts">("projects");
+  const [showEditModal, setShowEditModal] = useState(false);
 
   // New Note State
   const [noteTitle, setNoteTitle] = useState("");
@@ -148,47 +150,56 @@ export function ClientDetail({ id }: ClientDetailProps) {
         </div>
 
         {/* Quick details */}
-        <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-          {client.email && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <Mail size={14} style={{ color: "var(--foreground-faint)" }} />
-              <div>
-                <p style={{ fontSize: 10, textTransform: "uppercase", color: "var(--foreground-faint)", fontWeight: 600 }}>Email</p>
-                <a href={`mailto:${client.email}`} style={{ fontSize: 12, color: "var(--foreground-2)", textDecoration: "none", fontWeight: 500 }}>
-                  {client.email}
-                </a>
+        <div style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+            {client.email && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Mail size={14} style={{ color: "var(--foreground-faint)" }} />
+                <div>
+                  <p style={{ fontSize: 10, textTransform: "uppercase", color: "var(--foreground-faint)", fontWeight: 600 }}>Email</p>
+                  <a href={`mailto:${client.email}`} style={{ fontSize: 12, color: "var(--foreground-2)", textDecoration: "none", fontWeight: 500 }}>
+                    {client.email}
+                  </a>
+                </div>
               </div>
-            </div>
-          )}
-          {client.phone && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <Phone size={14} style={{ color: "var(--foreground-faint)" }} />
-              <div>
-                <p style={{ fontSize: 10, textTransform: "uppercase", color: "var(--foreground-faint)", fontWeight: 600 }}>Phone</p>
-                <span style={{ fontSize: 12, color: "var(--foreground-2)", fontWeight: 500 }}>{client.phone}</span>
+            )}
+            {client.phone && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Phone size={14} style={{ color: "var(--foreground-faint)" }} />
+                <div>
+                  <p style={{ fontSize: 10, textTransform: "uppercase", color: "var(--foreground-faint)", fontWeight: 600 }}>Phone</p>
+                  <span style={{ fontSize: 12, color: "var(--foreground-2)", fontWeight: 500 }}>{client.phone}</span>
+                </div>
               </div>
-            </div>
-          )}
-          {client.website && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <Globe size={14} style={{ color: "var(--foreground-faint)" }} />
-              <div>
-                <p style={{ fontSize: 10, textTransform: "uppercase", color: "var(--foreground-faint)", fontWeight: 600 }}>Website</p>
-                <a href={`https://${client.website}`} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: "var(--accent)", textDecoration: "none", fontWeight: 500, display: "flex", alignItems: "center", gap: 3 }}>
-                  {client.website} <ExternalLink size={10} />
-                </a>
+            )}
+            {client.website && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <Globe size={14} style={{ color: "var(--foreground-faint)" }} />
+                <div>
+                  <p style={{ fontSize: 10, textTransform: "uppercase", color: "var(--foreground-faint)", fontWeight: 600 }}>Website</p>
+                  <a href={`https://${client.website}`} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: "var(--accent)", textDecoration: "none", fontWeight: 500, display: "flex", alignItems: "center", gap: 3 }}>
+                    {client.website} <ExternalLink size={10} />
+                  </a>
+                </div>
               </div>
-            </div>
-          )}
-          {client.address && (
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <MapPin size={14} style={{ color: "var(--foreground-faint)" }} />
-              <div>
-                <p style={{ fontSize: 10, textTransform: "uppercase", color: "var(--foreground-faint)", fontWeight: 600 }}>Address</p>
-                <span style={{ fontSize: 12, color: "var(--foreground-2)", fontWeight: 500 }}>{client.address}</span>
+            )}
+            {client.address && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <MapPin size={14} style={{ color: "var(--foreground-faint)" }} />
+                <div>
+                  <p style={{ fontSize: 10, textTransform: "uppercase", color: "var(--foreground-faint)", fontWeight: 600 }}>Address</p>
+                  <span style={{ fontSize: 12, color: "var(--foreground-2)", fontWeight: 500 }}>{client.address}</span>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
+          <button
+            onClick={() => setShowEditModal(true)}
+            className="btn btn-ghost"
+            style={{ padding: "6px 12px", fontSize: 11 }}
+          >
+            Edit Profile
+          </button>
         </div>
       </div>
 
@@ -484,6 +495,16 @@ export function ClientDetail({ id }: ClientDetailProps) {
           </div>
         )}
       </div>
+      {showEditModal && client && (
+        <EditClientModal
+          client={client}
+          onUpdate={(updated) => {
+            setClient(updated);
+            setShowEditModal(false);
+          }}
+          onClose={() => setShowEditModal(false)}
+        />
+      )}
     </div>
   );
 }

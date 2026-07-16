@@ -147,6 +147,13 @@ function PublicProposalPortalContent() {
     window.print();
   }
 
+  function scrollToAuth() {
+    const el = document.getElementById("auth-section");
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth" });
+    }
+  }
+
   if (loading || verifyingSession) {
     return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "#F4FBF7", gap: 14 }}>
@@ -196,9 +203,28 @@ function PublicProposalPortalContent() {
               <X size={12} /> Declined
             </span>
           ) : !isAuthorized ? (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, color: "rgba(255,255,255,0.6)", padding: "4px 10px", background: "rgba(255,255,255,0.05)", borderRadius: 6, border: "1px solid rgba(255,255,255,0.1)" }}>
-              <Lock size={12} style={{ color: "#E0A900" }} /> Authentication Required to Sign
-            </span>
+            <button
+              onClick={scrollToAuth}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                fontSize: 11,
+                color: "#FFFFFF",
+                padding: "6px 12px",
+                background: "rgba(224, 169, 0, 0.2)",
+                borderRadius: 6,
+                border: "1px solid #E0A900",
+                cursor: "pointer",
+                fontWeight: 600,
+                fontFamily: "system-ui, sans-serif",
+                transition: "background 0.12s"
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = "rgba(224, 169, 0, 0.35)"}
+              onMouseLeave={(e) => e.currentTarget.style.background = "rgba(224, 169, 0, 0.2)"}
+            >
+              <Lock size={12} style={{ color: "#FFD04D" }} /> Required to Sign for Accept
+            </button>
           ) : (
             <div style={{ display: "flex", gap: 8 }}>
               <button
@@ -296,7 +322,7 @@ function PublicProposalPortalContent() {
 
           {/* Inline Authentication box if not logged in & status is review */}
           {status === "review" && !isAuthorized && (
-            <div className="no-print" style={{ margin: "0 40px 28px", padding: 24, background: "#FAF9F5", border: "1px solid #EEDFBE", borderRadius: 8 }}>
+            <div id="auth-section" className="no-print" style={{ margin: "0 40px 28px", padding: 24, background: "#FAF9F5", border: "1px solid #EEDFBE", borderRadius: 8 }}>
               <div style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
                 <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#F5ECD5", display: "flex", alignItems: "center", justifyContent: "center", color: "#B37D00", flexShrink: 0 }}>
                   <Lock size={16} />
