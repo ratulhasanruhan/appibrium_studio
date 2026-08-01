@@ -1,20 +1,15 @@
 "use server";
 
 import { createAdminClient, ID, Query } from "@/lib/appwrite/server";
-import { DB_ID, COLLECTIONS } from "@/lib/appwrite/client";
+import { databases, DB_ID, COLLECTIONS } from "@/lib/appwrite/client";
 import { normalizeBDPhone } from "@/utils";
 import type { Client, Contact, Note, ActionResult } from "@/types";
-
-// Helper to get server-side databases instance
-function getDb() {
-  return createAdminClient().databases;
-}
 
 // ── Clients ──────────────────────────────────────────────────────────────── //
 
 export async function getClients(): Promise<Client[]> {
   try {
-    const res = await getDb().listDocuments(DB_ID, COLLECTIONS.CLIENTS, [
+    const res = await databases.listDocuments(DB_ID, COLLECTIONS.CLIENTS, [
       Query.orderDesc("$createdAt"),
       Query.limit(100),
     ]);
@@ -27,7 +22,7 @@ export async function getClients(): Promise<Client[]> {
 
 export async function getClient(id: string): Promise<Client | null> {
   try {
-    const res = await getDb().getDocument(DB_ID, COLLECTIONS.CLIENTS, id);
+    const res = await databases.getDocument(DB_ID, COLLECTIONS.CLIENTS, id);
     return res as unknown as Client;
   } catch (error) {
     console.error(`[CRM] getClient(${id}) error:`, error);
@@ -39,7 +34,9 @@ export async function createClient(
   data: Omit<Client, "$id" | "$createdAt" | "$updatedAt">
 ): Promise<ActionResult<Client>> {
   try {
-    const { databases, users } = createAdminClient();
+    // Auth-user provisioning has no public-SDK equivalent, so it's the one
+    // operation here that genuinely needs the admin API key.
+    const { users } = createAdminClient();
     const cleanEmail = data.email.trim().toLowerCase();
 
     // 1. Ensure Appwrite Auth user exists (or create it) FIRST
@@ -118,7 +115,7 @@ export async function updateClient(
   data: Partial<Omit<Client, "$id" | "$createdAt" | "$updatedAt">>
 ): Promise<ActionResult<Client>> {
   try {
-    const res = await getDb().updateDocument(DB_ID, COLLECTIONS.CLIENTS, id, data);
+    const res = await databases.updateDocument(DB_ID, COLLECTIONS.CLIENTS, id, data);
     return { success: true, data: res as unknown as Client };
   } catch (error: any) {
     console.error("[CRM] updateClient error:", error);
@@ -128,7 +125,7 @@ export async function updateClient(
 
 export async function deleteClient(id: string): Promise<ActionResult<void>> {
   try {
-    await getDb().deleteDocument(DB_ID, COLLECTIONS.CLIENTS, id);
+    await databases.deleteDocument(DB_ID, COLLECTIONS.CLIENTS, id);
     return { success: true };
   } catch (error: any) {
     console.error("[CRM] deleteClient error:", error);
@@ -140,7 +137,7 @@ export async function deleteClient(id: string): Promise<ActionResult<void>> {
 
 export async function getContacts(clientId: string): Promise<Contact[]> {
   try {
-    const res = await getDb().listDocuments(DB_ID, COLLECTIONS.CONTACTS, [
+    const res = await databases.listDocuments(DB_ID, COLLECTIONS.CONTACTS, [
       Query.equal("client_id", clientId),
       Query.orderDesc("$createdAt"),
     ]);
@@ -155,7 +152,7 @@ export async function createContact(
   data: Omit<Contact, "$id">
 ): Promise<ActionResult<Contact>> {
   try {
-    const res = await getDb().createDocument(DB_ID, COLLECTIONS.CONTACTS, ID.unique(), data);
+    const res = await databases.createDocument(DB_ID, COLLECTIONS.CONTACTS, ID.unique(), data);
     return { success: true, data: res as unknown as Contact };
   } catch (error: any) {
     console.error("[CRM] createContact error:", error);
@@ -168,7 +165,7 @@ export async function updateContact(
   data: Partial<Omit<Contact, "$id">>
 ): Promise<ActionResult<Contact>> {
   try {
-    const res = await getDb().updateDocument(DB_ID, COLLECTIONS.CONTACTS, id, data);
+    const res = await databases.updateDocument(DB_ID, COLLECTIONS.CONTACTS, id, data);
     return { success: true, data: res as unknown as Contact };
   } catch (error: any) {
     console.error("[CRM] updateContact error:", error);
@@ -178,7 +175,7 @@ export async function updateContact(
 
 export async function deleteContact(id: string): Promise<ActionResult<void>> {
   try {
-    await getDb().deleteDocument(DB_ID, COLLECTIONS.CONTACTS, id);
+    await databases.deleteDocument(DB_ID, COLLECTIONS.CONTACTS, id);
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message || "Failed to delete contact" };
@@ -189,7 +186,7 @@ export async function deleteContact(id: string): Promise<ActionResult<void>> {
 
 export async function getNotes(clientId: string): Promise<Note[]> {
   try {
-    const res = await getDb().listDocuments(DB_ID, COLLECTIONS.NOTES, [
+    const res = await databases.listDocuments(DB_ID, COLLECTIONS.NOTES, [
       Query.equal("client_id", clientId),
       Query.orderDesc("$createdAt"),
     ]);
@@ -204,7 +201,7 @@ export async function createNote(
   data: Omit<Note, "$id" | "$createdAt" | "$updatedAt">
 ): Promise<ActionResult<Note>> {
   try {
-    const res = await getDb().createDocument(DB_ID, COLLECTIONS.NOTES, ID.unique(), data);
+    const res = await databases.createDocument(DB_ID, COLLECTIONS.NOTES, ID.unique(), data);
     return { success: true, data: res as unknown as Note };
   } catch (error: any) {
     console.error("[CRM] createNote error:", error);
@@ -214,7 +211,7 @@ export async function createNote(
 
 export async function deleteNote(id: string): Promise<ActionResult<void>> {
   try {
-    await getDb().deleteDocument(DB_ID, COLLECTIONS.NOTES, id);
+    await databases.deleteDocument(DB_ID, COLLECTIONS.NOTES, id);
     return { success: true };
   } catch (error: any) {
     return { success: false, error: error.message || "Failed to delete note" };
