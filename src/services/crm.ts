@@ -2,6 +2,7 @@
 
 import { createAdminClient, ID, Query } from "@/lib/appwrite/server";
 import { DB_ID, COLLECTIONS } from "@/lib/appwrite/client";
+import { normalizeBDPhone } from "@/services/sms";
 import type { Client, Contact, Note, ActionResult } from "@/types";
 
 // Helper to get server-side databases instance
@@ -48,14 +49,27 @@ export async function createClient(
       ]);
 
       if (userList.users.length === 0) {
-        // Create user account in Appwrite Auth system
-        await users.create(
-          ID.unique(),
-          cleanEmail,
-          data.phone || undefined, // phone
-          undefined, // password (keeps password empty, which is used for magic link login)
-          data.name
-        );
+        // Create user account in Appwrite Auth system.
+        // Appwrite requires phone numbers in strict E.164 format (+8801...),
+        // but the CRM form accepts free-text input, so normalize it first.
+        const normalizedPhone = data.phone ? normalizeBDPhone(data.phone) : undefined;
+        try {
+          await users.create(
+            ID.unique(),
+            cleanEmail,
+            normalizedPhone,
+            undefined, // password (keeps password empty, which is used for magic link login)
+            data.name
+          );
+        } catch (phoneErr: any) {
+          // A malformed phone number shouldn't block client creation — retry without it.
+          if (normalizedPhone) {
+            console.error("[CRM Server] Auth user creation with phone failed, retrying without phone:", phoneErr.message);
+            await users.create(ID.unique(), cleanEmail, undefined, undefined, data.name);
+          } else {
+            throw phoneErr;
+          }
+        }
         console.log("[CRM Server] Successfully created Appwrite Auth user for:", cleanEmail);
       } else {
         console.log("[CRM Server] Appwrite Auth user already exists for:", cleanEmail);

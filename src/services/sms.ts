@@ -22,7 +22,7 @@ export interface SMSResult {
 /**
  * Normalize a phone number to BD international format (+880...).
  */
-function normalizeBDPhone(phone: string): string {
+export function normalizeBDPhone(phone: string): string {
   const digits = phone.replace(/\D/g, "");
   if (digits.startsWith("880")) return `+${digits}`;
   if (digits.startsWith("0")) return `+880${digits.slice(1)}`;

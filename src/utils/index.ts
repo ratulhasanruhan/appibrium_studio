@@ -19,11 +19,14 @@ export function getCurrency(code?: string): CurrencyConfig {
 /**
  * Format a number as currency using the given currency code.
  * Uses the brand ৳ symbol directly instead of Intl for BDT (better rendering).
+ * Whole amounts are shown without decimals (e.g. ৳5,000 instead of ৳5,000.00);
+ * fractional amounts still show up to 2 decimal places.
  */
 export function formatCurrency(amount: number, currencyCode: string = "BDT"): string {
   const currency = getCurrency(currencyCode);
+  const hasFraction = Math.round(amount * 100) % 100 !== 0;
   const formatted = new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: 2,
+    minimumFractionDigits: hasFraction ? 2 : 0,
     maximumFractionDigits: 2,
   }).format(amount);
 

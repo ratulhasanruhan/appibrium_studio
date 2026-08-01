@@ -204,7 +204,7 @@ export default function PublicInvoicePortal() {
                 </div>
               ))}
               <div className="totals-row totals-final">
-                <span>Total Due</span>
+                <span>{invoice.status === "paid" ? "Total" : "Total Due"}</span>
                 <span>{formatCurrency(invoice.total, currency)}</span>
               </div>
               {invoice.status === "paid" && invoice.paid_at && (
