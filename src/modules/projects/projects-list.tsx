@@ -104,14 +104,11 @@ export function ProjectsList() {
       const enriched = projList.map((p) => {
         const projInvs = invoiceGroup.get(p.$id) || [];
         let paid = 0;
-        let due = 0;
         projInvs.forEach((inv) => {
-          if (inv.status === "paid") {
-            paid += inv.total;
-          } else if (inv.status !== "cancelled" && inv.status !== "draft") {
-            due += inv.total;
-          }
+          if (inv.status === "paid") paid += inv.total;
         });
+        // Due = remaining budget still to be collected, not just unpaid invoices.
+        const due = Math.max((p.budget || 0) - paid, 0);
 
         return {
           ...p,
