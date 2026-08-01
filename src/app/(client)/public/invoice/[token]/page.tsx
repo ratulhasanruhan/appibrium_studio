@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { ShieldAlert, Loader2, Printer, Check, Landmark, Smartphone } from "lucide-react";
+import { ShieldAlert, Loader2, Printer, Check, Copy } from "lucide-react";
 import { getInvoiceByToken, getInvoiceItems } from "@/services/invoices";
 import { getClient } from "@/services/crm";
 import type { Invoice, Client, InvoiceItem } from "@/types";
@@ -18,6 +18,14 @@ export default function PublicInvoicePortal() {
   const [items,   setItems]   = useState<InvoiceItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [bankDetails, setBankDetails] = useState<any>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  function copyToClipboard(field: string, value: string) {
+    navigator.clipboard?.writeText(value).then(() => {
+      setCopiedField(field);
+      setTimeout(() => setCopiedField((f) => (f === field ? null : f)), 1500);
+    });
+  }
 
   useEffect(() => {
     async function load() {
@@ -215,66 +223,6 @@ export default function PublicInvoicePortal() {
             </div>
           </div>
 
-          {/* ─── Bank Details ─── */}
-          {bankDetails && (
-            <div style={{ padding: "0 40px 28px" }}>
-              <div className="bank-section">
-                <p style={{ fontSize: 11, fontWeight: 700, color: "#0D2317", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 14 }}>Payment Instructions</p>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-                  <div>
-                    <p style={{ fontSize: 10, fontWeight: 600, color: "#6B8F7C", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8, display: "flex", alignItems: "center", gap: 5 }}>
-                      <Landmark size={11} /> Bank Transfer
-                    </p>
-                    {[
-                      { k: "Account Name",   v: bankDetails.account_name },
-                      { k: "Account Number", v: bankDetails.account_number },
-                      { k: "Bank",           v: bankDetails.bank_name },
-                      { k: "Branch",         v: bankDetails.branch },
-                      { k: "Routing",        v: bankDetails.routing_number },
-                    ].filter((r) => r.v).map((row) => (
-                      <div key={row.k} style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, fontSize: 12 }}>
-                        <span style={{ color: "#6B8F7C" }}>{row.k}</span>
-                        <span style={{ fontWeight: 600, color: "#0D2317" }}>{row.v}</span>
-                      </div>
-                    ))}
-                  </div>
-                  {(() => {
-                    const mobileList = Array.isArray(bankDetails.mobile_banking)
-                      ? bankDetails.mobile_banking
-                      : bankDetails.mobile_banking?.number
-                        ? [bankDetails.mobile_banking]
-                        : [];
-                    if (mobileList.length === 0) return null;
-                    return (
-                      <div>
-                        <p style={{ fontSize: 10, fontWeight: 600, color: "#6B8F7C", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8, display: "flex", alignItems: "center", gap: 5 }}>
-                          <Smartphone size={11} /> Mobile Banking
-                        </p>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                          {mobileList.map((mb: any, idx: number) => (
-                            <div key={idx} style={{ padding: "10px 14px", background: "#F0FAF5", borderRadius: 8, border: "1px solid #D6EDE1" }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                                <span style={{ fontSize: 12, fontWeight: 700, color: "#0D2317" }}>{mb.provider}</span>
-                                {mb.type && (
-                                  <span style={{ fontSize: 9, padding: "2px 6px", background: "#D6EDE1", color: "#00965C", borderRadius: 4, fontWeight: 600, textTransform: "uppercase" }}>
-                                    {mb.type}
-                                  </span>
-                                )}
-                              </div>
-                              <p style={{ fontSize: 14, fontWeight: 800, color: "#00965C", fontFamily: "'JetBrains Mono', monospace", marginTop: 3, marginBottom: 0 }}>
-                                {mb.number}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* ─── Notes ─── */}
           {invoice.notes && (
             <div style={{ padding: "0 40px 24px" }}>
@@ -282,6 +230,82 @@ export default function PublicInvoicePortal() {
               <p style={{ fontSize: 12, color: "#1E3A27", lineHeight: 1.6 }}>{invoice.notes}</p>
             </div>
           )}
+
+          {/* ─── Payment Instructions (always last, directly above the footer) ─── */}
+          {bankDetails && (() => {
+            const bankRows = [
+              { k: "Account Name",   v: bankDetails.account_name },
+              { k: "Account Number", v: bankDetails.account_number, copy: true },
+              { k: "Bank",           v: bankDetails.bank_name },
+              { k: "Branch",         v: bankDetails.branch },
+              { k: "Routing Number", v: bankDetails.routing_number, copy: true },
+            ].filter((r) => r.v);
+
+            const mobileList = Array.isArray(bankDetails.mobile_banking)
+              ? bankDetails.mobile_banking
+              : bankDetails.mobile_banking?.number
+                ? [bankDetails.mobile_banking]
+                : [];
+
+            if (bankRows.length === 0 && mobileList.length === 0) return null;
+
+            return (
+              <div className="payment-section" style={{ padding: "28px 40px 28px" }}>
+                <div className="payment-card">
+                  <div className="payment-card-header">
+                    <span className="payment-card-title">Payment Instructions</span>
+                    <span className="payment-card-note">Reference <strong>{invoiceRef}</strong> with your payment</span>
+                  </div>
+                  <div className="payment-methods">
+                    {bankRows.length > 0 && (
+                      <div className="payment-method">
+                        <p className="payment-method-label">Bank Transfer</p>
+                        {bankRows.map((row) => (
+                          <div key={row.k} className="payment-row">
+                            <span className="payment-row-label">{row.k}</span>
+                            <span className="payment-row-value">
+                              {row.v}
+                              {row.copy && (
+                                <button
+                                  type="button"
+                                  className="copy-btn no-print"
+                                  onClick={() => copyToClipboard(row.k, row.v)}
+                                  aria-label={`Copy ${row.k}`}
+                                >
+                                  {copiedField === row.k ? <Check size={10} /> : <Copy size={10} />}
+                                </button>
+                              )}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {mobileList.length > 0 && (
+                      <div className="payment-method">
+                        <p className="payment-method-label">Mobile Banking</p>
+                        {mobileList.map((mb: any, idx: number) => (
+                          <div key={idx} className="payment-row">
+                            <span className="payment-row-label">{mb.provider}{mb.type ? ` (${mb.type})` : ""}</span>
+                            <span className="payment-row-value">
+                              {mb.number}
+                              <button
+                                type="button"
+                                className="copy-btn no-print"
+                                onClick={() => copyToClipboard(`mobile-${idx}`, mb.number)}
+                                aria-label={`Copy ${mb.provider} number`}
+                              >
+                                {copiedField === `mobile-${idx}` ? <Check size={10} /> : <Copy size={10} />}
+                              </button>
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* ─── Footer ─── */}
           <div className="inv-doc-footer">
@@ -373,10 +397,55 @@ export default function PublicInvoicePortal() {
           padding: 10px 0; border-top: 2px solid #00B872; border-bottom: none; margin-top: 4px;
         }
 
-        .bank-section {
-          padding: 16px 20px; background: #F6FBF8;
-          border: 1px solid #D6EDE1; border-radius: 8px;
+        .payment-card {
+          border: 1.5px solid #D6EDE1; border-radius: 8px;
+          background: #fff;
         }
+        .payment-card-header {
+          display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 2px 16px;
+          padding: 12px 18px; background: #F6FBF8;
+          border-bottom: 1px solid #D6EDE1;
+          border-radius: 7px 7px 0 0;
+        }
+        .payment-card-title {
+          font-size: 11px; font-weight: 700; color: #0D2317;
+          text-transform: uppercase; letter-spacing: 0.06em;
+        }
+        .payment-card-note { font-size: 11px; color: #6B8F7C; }
+        .payment-card-note strong { color: #0D2317; font-weight: 700; }
+
+        .payment-methods {
+          display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+          gap: 0 24px; padding: 14px 18px;
+        }
+        .payment-method:not(:last-child) { border-right: 1px solid #EDF6F1; padding-right: 24px; }
+        .payment-method-label {
+          font-size: 10px; font-weight: 700; color: #6B8F7C;
+          text-transform: uppercase; letter-spacing: 0.05em;
+          margin-bottom: 8px;
+        }
+
+        .payment-row {
+          display: flex; justify-content: space-between; align-items: center; gap: 12px;
+          padding: 5px 0; font-size: 12px;
+          border-bottom: 1px solid #F0FAF5;
+        }
+        .payment-row:last-child { border-bottom: none; }
+        .payment-row-label { color: #6B8F7C; flex-shrink: 0; }
+        .payment-row-value {
+          display: flex; align-items: center; gap: 5px;
+          font-weight: 600; color: #1E3A27;
+          font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.01em;
+          text-align: right;
+        }
+
+        .copy-btn {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 16px; height: 16px; padding: 0; flex-shrink: 0;
+          background: none; border: none;
+          color: #9CB4A8; cursor: pointer;
+        }
+        .copy-btn:hover { color: #00965C; }
 
         .inv-doc-footer {
           display: flex; align-items: center; justify-content: space-between;
@@ -397,7 +466,14 @@ export default function PublicInvoicePortal() {
           html, body { background: #fff !important; }
           .no-print { display: none !important; }
           .inv-main { padding: 0 !important; }
-          .invoice-doc { max-width: 100%; border-radius: 0; box-shadow: none; border: none; }
+          .invoice-doc {
+            max-width: 100%; border-radius: 0; box-shadow: none; border: none;
+            display: flex; flex-direction: column;
+            min-height: calc(297mm - 38mm); /* A4 height minus @page top+bottom margin */
+          }
+          /* Pins payment instructions (and the footer right after it) to the
+             bottom of the printed A4 page instead of following content flow. */
+          .payment-section { margin-top: auto; }
 
           .pdf-watermark {
             display: flex !important; position: fixed;
