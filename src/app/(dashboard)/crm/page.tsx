@@ -5,7 +5,7 @@ import { Topbar } from "@/components/topbar";
 import { ClientsTable } from "@/modules/crm/clients-table";
 import type { Metadata } from "next";
 import { Plus, X, Loader2, Check, AlertCircle } from "lucide-react";
-import { createClient } from "@/services/crm";
+import { createClient } from "@/services/crm-admin";
 
 export default function CRMPage() {
   const [showModal, setShowModal] = useState(false);

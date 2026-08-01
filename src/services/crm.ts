@@ -1,8 +1,4 @@
-"use server";
-
-import { createAdminClient, ID, Query } from "@/lib/appwrite/server";
-import { databases, DB_ID, COLLECTIONS } from "@/lib/appwrite/client";
-import { normalizeBDPhone } from "@/utils";
+import { databases, DB_ID, COLLECTIONS, ID, Query } from "@/lib/appwrite/client";
 import type { Client, Contact, Note, ActionResult } from "@/types";
 
 // ── Clients ──────────────────────────────────────────────────────────────── //
@@ -27,86 +23,6 @@ export async function getClient(id: string): Promise<Client | null> {
   } catch (error) {
     console.error(`[CRM] getClient(${id}) error:`, error);
     return null;
-  }
-}
-
-export async function createClient(
-  data: Omit<Client, "$id" | "$createdAt" | "$updatedAt">
-): Promise<ActionResult<Client>> {
-  try {
-    // Auth-user provisioning has no public-SDK equivalent, so it's the one
-    // operation here that genuinely needs the admin API key.
-    const { users } = createAdminClient();
-    const cleanEmail = data.email.trim().toLowerCase();
-
-    // 1. Ensure Appwrite Auth user exists (or create it) FIRST
-    try {
-      const userList = await users.list([
-        Query.equal("email", cleanEmail)
-      ]);
-
-      if (userList.users.length === 0) {
-        // Create user account in Appwrite Auth system.
-        // Appwrite requires phone numbers in strict E.164 format (+8801...),
-        // but the CRM form accepts free-text input, so normalize it first.
-        const normalizedPhone = data.phone ? normalizeBDPhone(data.phone) : undefined;
-        try {
-          await users.create(
-            ID.unique(),
-            cleanEmail,
-            normalizedPhone,
-            undefined, // password (keeps password empty, which is used for magic link login)
-            data.name
-          );
-        } catch (phoneErr: any) {
-          // A malformed phone number shouldn't block client creation — retry without it.
-          if (normalizedPhone) {
-            console.error("[CRM Server] Auth user creation with phone failed, retrying without phone:", phoneErr.message);
-            await users.create(ID.unique(), cleanEmail, undefined, undefined, data.name);
-          } else {
-            throw phoneErr;
-          }
-        }
-        console.log("[CRM Server] Successfully created Appwrite Auth user for:", cleanEmail);
-      } else {
-        console.log("[CRM Server] Appwrite Auth user already exists for:", cleanEmail);
-      }
-    } catch (authErr: any) {
-      console.error("[CRM Server] Appwrite Auth creation failed:", authErr);
-      return {
-        success: false,
-        error: `Appwrite Auth Error: ${authErr.message || "Access Denied"}. Please check that APPWRITE_API_KEY is correctly set in your environment variables with 'users.write' and 'users.read' scopes.`
-      };
-    }
-
-    // 2. Create the client document
-    const clientData = {
-      ...data,
-      email: cleanEmail,
-    };
-    const res = await databases.createDocument(DB_ID, COLLECTIONS.CLIENTS, ID.unique(), clientData);
-    const clientId = res.$id;
-
-    // 3. Create contact document as Primary Contact
-    try {
-      await databases.createDocument(DB_ID, COLLECTIONS.CONTACTS, ID.unique(), {
-        client_id: clientId,
-        first_name: data.name,
-        last_name: "",
-        email: cleanEmail,
-        phone: data.phone || undefined,
-        role: "Primary Contact",
-        is_primary: true,
-      });
-      console.log("[CRM Server] Successfully created linked Contact record.");
-    } catch (contactErr: any) {
-      console.error("[CRM Server] Linked contact creation warning:", contactErr.message);
-    }
-
-    return { success: true, data: res as unknown as Client };
-  } catch (error: any) {
-    console.error("[CRM] createClient error:", error);
-    return { success: false, error: error.message || "Failed to create client" };
   }
 }
 
