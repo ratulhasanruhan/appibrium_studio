@@ -2,7 +2,7 @@
 
 import { createAdminClient, ID, Query } from "@/lib/appwrite/server";
 import { DB_ID, COLLECTIONS } from "@/lib/appwrite/client";
-import { normalizeBDPhone } from "@/services/sms";
+import { normalizeBDPhone } from "@/utils";
 import type { Client, Contact, Note, ActionResult } from "@/types";
 
 // Helper to get server-side databases instance

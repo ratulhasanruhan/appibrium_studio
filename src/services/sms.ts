@@ -7,6 +7,8 @@
  * and execute network requests securely.
  */
 
+import { normalizeBDPhone } from "@/utils";
+
 export interface SMSPayload {
   to: string;         // Recipient phone (will be normalized to BD format)
   message: string;
@@ -17,16 +19,6 @@ export interface SMSResult {
   message_id?: string;
   error?: string;
   raw?: unknown;
-}
-
-/**
- * Normalize a phone number to BD international format (+880...).
- */
-export function normalizeBDPhone(phone: string): string {
-  const digits = phone.replace(/\D/g, "");
-  if (digits.startsWith("880")) return `+${digits}`;
-  if (digits.startsWith("0")) return `+880${digits.slice(1)}`;
-  return `+880${digits}`;
 }
 
 /**
