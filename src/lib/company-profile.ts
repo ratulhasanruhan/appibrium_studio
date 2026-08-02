@@ -6,6 +6,35 @@
  * so nothing has to be re-typed per proposal.
  */
 
+/** Letterhead identity used across generated documents. */
+export const COMPANY = {
+  name: "Appibrium Technology Co.",
+  tagline: "Engineering the Future",
+  address: "23/A Shukrabad, Dhaka, Bangladesh",
+  email: "hello@appibrium.com",
+  website: "appibrium.com",
+  phone: "",
+};
+
+export interface Signatory {
+  id: string;
+  /** Full legal name, printed under the signature rule. */
+  name: string;
+  /** Short form drawn as the handwritten signature mark above the rule. */
+  signature: string;
+  title: string;
+}
+
+/** People authorised to sign company documents. */
+export const SIGNATORIES: Signatory[] = [
+  {
+    id: "ratul-hasan-ruhan",
+    name: "Ratul Hasan Ruhan",
+    signature: "Ratul Hasan",
+    title: "Chief Executive Officer",
+  },
+];
+
 export interface WorkItem {
   id: string;
   title: string;

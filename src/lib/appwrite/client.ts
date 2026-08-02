@@ -49,6 +49,7 @@ export const COLLECTIONS = {
   SMS_LOGS:          process.env.NEXT_PUBLIC_COL_SMS_LOGS          ?? "sms_logs",
   WORKSPACE_SETTINGS:process.env.NEXT_PUBLIC_COL_WORKSPACE_SETTINGS ?? "workspace_settings",
   QUOTES:             process.env.NEXT_PUBLIC_COL_QUOTES             ?? "quotes",
+  LETTERS:            process.env.NEXT_PUBLIC_COL_LETTERS            ?? "letters",
 } as const;
 
 export const BUCKETS = {

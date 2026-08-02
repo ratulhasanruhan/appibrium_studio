@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Search, FileText, Check, X, Trash2, Loader2, Eye, ClipboardList } from "lucide-react";
 import type { Quote as Inquiry, Client } from "@/types";
-import { formatRelativeTime } from "@/utils";
+import { formatRelativeTime, hasAdminRole } from "@/utils";
 import Link from "next/link";
 import { getInquiries, updateInquiryStatus, deleteInquiry, createInquiry } from "@/services/inquiries";
 import { createProposal } from "@/services/proposals";
@@ -45,7 +45,7 @@ export function InquiriesList() {
     try {
       const user = await account.get();
       const labels = (user as any).labels || [];
-      const admin = labels.length > 0 && ["owner", "admin", "administrator", "manager", "finance"].includes(labels[0].toLowerCase());
+      const admin = hasAdminRole(labels);
       setIsAdmin(admin);
 
       let rawInquiries: Inquiry[] = [];

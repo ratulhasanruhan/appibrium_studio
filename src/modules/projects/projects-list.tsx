@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Search, FolderKanban, ExternalLink, Plus, Loader2, X, AlertCircle, Check, Trash2, Edit2 } from "lucide-react";
 import type { Project, Client, Invoice } from "@/types";
-import { formatDate, formatCurrency } from "@/utils";
+import { formatDate, formatCurrency, hasAdminRole } from "@/utils";
 import { getProjects, createProject, updateProject, deleteProject } from "@/services/projects";
 import { getClients } from "@/services/crm";
 import { sendProjectNotification } from "@/services/email";
@@ -62,7 +62,7 @@ export function ProjectsList() {
     try {
       const user = await account.get();
       const labels = (user as any).labels || [];
-      const admin = labels.length > 0 && ["owner", "admin", "administrator", "manager", "finance"].includes(labels[0].toLowerCase());
+      const admin = hasAdminRole(labels);
       setIsAdmin(admin);
 
       let projList: Project[] = [];

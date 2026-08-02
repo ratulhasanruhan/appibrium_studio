@@ -259,6 +259,38 @@ export interface ActionResult<T = void> {
   error?: string;
 }
 
+// ─── Letterhead Documents ─────────────────────────────────────────────── //
+
+export type LetterStatus = "draft" | "sent" | "viewed" | "signed" | "declined";
+
+export interface Letter {
+  $id: string;
+  /** Optional — letters can be internal, with no client attached. */
+  client_id?: string;
+  type: string;              // LetterType from the template library
+  title: string;
+  reference: string;         // e.g. APP-AGR-2026-0001
+  recipient_name?: string;
+  recipient_role?: string;
+  recipient_address?: string;
+  body_html: string;
+  field_values?: string;     // JSON of the template inputs, for re-editing
+  status: LetterStatus;
+  public_token: string;
+  requires_signature: boolean;
+  show_company_signature: boolean;
+  signatory_name?: string;
+  signatory_signature?: string;
+  signatory_title?: string;
+  issue_date: string;
+  sent_at?: string;
+  viewed_at?: string;
+  signed_at?: string;
+  signed_by_name?: string;
+  $createdAt: string;
+  $updatedAt: string;
+}
+
 export interface Quote {
   $id: string;
   client_id: string;

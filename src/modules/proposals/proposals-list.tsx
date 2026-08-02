@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Search, FileText, ExternalLink, Send, Clock, Loader2, Trash2 } from "lucide-react";
 import type { Proposal, Client } from "@/types";
-import { formatRelativeTime } from "@/utils";
+import { formatRelativeTime, hasAdminRole } from "@/utils";
 import Link from "next/link";
 import { getProposals, deleteProposal } from "@/services/proposals";
 import { getClients } from "@/services/crm";
@@ -42,7 +42,7 @@ export function ProposalsList() {
       try {
         const user = await account.get();
         const labels = (user as any).labels || [];
-        const admin = labels.length > 0 && ["owner", "admin", "administrator", "manager", "finance"].includes(labels[0].toLowerCase());
+        const admin = hasAdminRole(labels);
         setIsAdmin(admin);
 
         let rawProposals: Proposal[] = [];

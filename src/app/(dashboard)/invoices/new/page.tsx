@@ -10,7 +10,7 @@ import { getClients } from "@/services/crm";
 import { getProjects } from "@/services/projects";
 import { createInvoice, createInvoiceItem } from "@/services/invoices";
 import { sendInvoiceNotification } from "@/services/email";
-import { databases, DB_ID, COLLECTIONS, Query } from "@/lib/appwrite/client";
+import { getBankDetails } from "@/services/settings";
 
 interface LineItem extends Omit<InvoiceItem, "$id" | "invoice_id"> {
   id: string;
@@ -54,24 +54,18 @@ export default function NewInvoicePage() {
       setClients(cliList);
       setLoadingCli(false);
 
-      // Load bank details from workspace settings
-      try {
-        const res = await databases.listDocuments(DB_ID, COLLECTIONS.WORKSPACE_SETTINGS, [Query.limit(1)]);
-        if (res.documents.length > 0) {
-          const doc = res.documents[0] as any;
-          if (doc.bank_details) {
-            const bd = typeof doc.bank_details === "string" ? JSON.parse(doc.bank_details) : doc.bank_details;
-            setBank({
-              account_name:   bd.account_name   || "Appibrium Technology Co.",
-              account_number: bd.account_number || "",
-              bank_name:      bd.bank_name      || "",
-              branch:         bd.branch         || "",
-              routing_number: bd.routing_number || "",
-              mobile_banking: bd.mobile_banking || { provider: "bKash", number: "" },
-            });
-          }
-        }
-      } catch (_) {}
+      // Bank details come from workspace settings
+      const bd = await getBankDetails();
+      if (bd) {
+        setBank({
+          account_name:   bd.account_name   || "Appibrium Technology Co.",
+          account_number: bd.account_number || "",
+          bank_name:      bd.bank_name      || "",
+          branch:         bd.branch         || "",
+          routing_number: bd.routing_number || "",
+          mobile_banking: bd.mobile_banking || { provider: "bKash", number: "" },
+        });
+      }
     }
     load();
   }, []);

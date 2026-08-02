@@ -40,6 +40,31 @@ export function formatCurrency(amount: number, currencyCode: string = "BDT"): st
  */
 export const fmt = (amount: number) => formatCurrency(amount, "BDT");
 
+// ─── Roles ────────────────────────────────────────────────────────────── //
+
+/** Appwrite labels that grant back-office access. */
+export const ADMIN_ROLES = ["owner", "admin", "administrator", "manager", "finance"];
+
+/**
+ * True when any of the user's labels grants admin access.
+ * Checks every label, not just the first — a user can hold several.
+ */
+export function hasAdminRole(labels: unknown): boolean {
+  if (!Array.isArray(labels)) return false;
+  return labels.some((l) => typeof l === "string" && ADMIN_ROLES.includes(l.toLowerCase()));
+}
+
+// ─── HTML ─────────────────────────────────────────────────────────────── //
+
+/** Escapes user input before it is embedded in generated document HTML. */
+export function escapeHtml(value: string): string {
+  return (value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
 // ─── Date & Time ──────────────────────────────────────────────────────── //
 
 export function formatDate(
@@ -71,6 +96,14 @@ export function formatRelativeTime(date: string | Date): string {
 }
 
 // ─── Document IDs ─────────────────────────────────────────────────────── //
+
+/**
+ * Human-readable reference derived from a stored document,
+ * e.g. documentRef("APP-INV", inv.$createdAt, inv.$id) -> APP-INV-2026-9F3A
+ */
+export function documentRef(prefix: string, createdAt: string, id: string): string {
+  return `${prefix}-${new Date(createdAt).getFullYear()}-${id.slice(-4).toUpperCase()}`;
+}
 
 /**
  * Generate formatted document IDs e.g. APP-PROP-2026-0042

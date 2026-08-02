@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { client, account } from "@/lib/appwrite/client";
-import { cn } from "@/utils";
+import { cn, hasAdminRole } from "@/utils";
 import {
   LayoutDashboard,
   Users,
@@ -20,6 +20,7 @@ import {
   ChevronDown,
   LogOut,
   ClipboardList,
+  FileSignature,
 } from "lucide-react";
 
 interface NavItem {
@@ -34,6 +35,7 @@ const primaryNav: NavItem[] = [
   { label: "Inquiries",    href: "/inquiries",    icon: ClipboardList },
   { label: "Projects",     href: "/projects",     icon: FolderKanban },
   { label: "Proposals",    href: "/proposals",    icon: FileText },
+  { label: "Documents",    href: "/letters",      icon: FileSignature },
   { label: "Invoices",     href: "/invoices",     icon: Receipt },
   { label: "Transactions", href: "/transactions", icon: ArrowLeftRight },
 ];
@@ -68,7 +70,7 @@ export function Sidebar() {
   const [userName, setUserName] = useState("");
   const [userLabel, setUserLabel] = useState("");
 
-  const isAdmin = userLabel && ["owner", "admin", "administrator", "manager", "finance"].includes(userLabel.toLowerCase());
+  const isAdmin = hasAdminRole([userLabel]);
 
   useEffect(() => {
     // Ping Appwrite server on mount
@@ -185,7 +187,7 @@ export function Sidebar() {
       <div className="sidebar-section" style={{ marginTop: 4 }}>
         <p className="sidebar-label">Workspace</p>
         {primaryNav.filter(item => {
-          if (item.label === "CRM" || item.label === "Transactions") return isAdmin;
+          if (item.label === "CRM" || item.label === "Transactions" || item.label === "Documents") return isAdmin;
           return true;
         }).map((item) => <NavLink key={item.href} item={item} />)}
       </div>

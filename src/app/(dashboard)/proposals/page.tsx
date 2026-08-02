@@ -6,6 +6,7 @@ import { ProposalsList } from "@/modules/proposals/proposals-list";
 import { Plus } from "lucide-react";
 import Link from "next/link";
 import { account } from "@/lib/appwrite/client";
+import { hasAdminRole } from "@/utils";
 
 export default function ProposalsPage() {
   const [isAdmin, setIsAdmin] = useState(false);
@@ -13,7 +14,7 @@ export default function ProposalsPage() {
   useEffect(() => {
     account.get().then((user) => {
       const labels = (user as any).labels || [];
-      const admin = labels.length > 0 && ["owner", "admin", "administrator", "manager", "finance"].includes(labels[0].toLowerCase());
+      const admin = hasAdminRole(labels);
       setIsAdmin(admin);
     }).catch(() => {
       setIsAdmin(false);

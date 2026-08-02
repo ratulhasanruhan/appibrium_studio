@@ -8,6 +8,7 @@
  */
 
 import { worksByIds } from "@/lib/company-profile";
+import { escapeHtml as esc } from "@/utils";
 
 export type BlockId =
   | "intro"
@@ -69,14 +70,6 @@ export interface BlockDef {
 }
 
 // ── helpers ─────────────────────────────────────────────────────────────── //
-
-function esc(value: string): string {
-  return (value || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
 
 function lines(value: string): string[] {
   return (value || "")

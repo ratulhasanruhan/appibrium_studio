@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Search, HardDrive, Download, Trash2, Plus, Loader2, FileText, Check, AlertCircle } from "lucide-react";
 import type { FileMetadata, Client } from "@/types";
-import { formatDate, formatFileSize } from "@/utils";
+import { formatDate, formatFileSize, hasAdminRole } from "@/utils";
 import { getFilesMetadata, uploadFile, deleteFile, getFileDownloadUrl } from "@/services/files";
 import { getClients } from "@/services/crm";
 import { account } from "@/lib/appwrite/client";
@@ -35,7 +35,7 @@ export function FilesList() {
         const user = await account.get();
         setCurrentUser(user);
         const labels = user.labels || [];
-        const admin = labels.length > 0 && ["owner", "admin", "administrator", "manager", "finance"].includes(labels[0].toLowerCase());
+        const admin = hasAdminRole(labels);
         setIsAdmin(admin);
 
         if (!admin) {

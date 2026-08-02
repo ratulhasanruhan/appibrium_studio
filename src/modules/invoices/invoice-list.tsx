@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Search, Receipt, ExternalLink, MessageSquare, Loader2, Trash2 } from "lucide-react";
 import type { Invoice, Client } from "@/types";
-import { formatDate, formatCurrency } from "@/utils";
+import { formatDate, formatCurrency, documentRef, hasAdminRole } from "@/utils";
 import Link from "next/link";
 import { getInvoices, deleteInvoice } from "@/services/invoices";
 import { getClients } from "@/services/crm";
@@ -36,7 +36,7 @@ export function InvoiceList() {
       try {
         const user = await account.get();
         const labels = (user as any).labels || [];
-        const admin = labels.length > 0 && ["owner", "admin", "administrator", "manager", "finance"].includes(labels[0].toLowerCase());
+        const admin = hasAdminRole(labels);
         setIsAdmin(admin);
 
         let rawInvoices: Invoice[] = [];
@@ -77,7 +77,7 @@ export function InvoiceList() {
   async function handleSendSMS(inv: InvoiceWithClient) {
     if (!inv.client_phone) return;
     try {
-      const ref = `APP-INV-${new Date(inv.$createdAt).getFullYear()}-${inv.$id.slice(-4).toUpperCase()}`;
+      const ref = documentRef("APP-INV", inv.$createdAt, inv.$id);
       const res = await sendInvoiceSMS(
         inv.client_phone,
         ref,
@@ -238,7 +238,7 @@ export function InvoiceList() {
                         </Link>
                         {isAdmin && (
                           <button
-                            onClick={() => handleDelete(inv.$id, `APP-INV-${new Date(inv.$createdAt).getFullYear()}-${inv.$id.slice(-4).toUpperCase()}`)}
+                            onClick={() => handleDelete(inv.$id, documentRef("APP-INV", inv.$createdAt, inv.$id))}
                             style={{ background: "none", border: "none", color: "var(--foreground-faint)", padding: 4, cursor: "pointer", display: "flex", alignItems: "center" }}
                             title="Delete"
                           >

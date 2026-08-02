@@ -8,7 +8,7 @@ import { getInvoice, updateInvoice, getInvoiceItems } from "@/services/invoices"
 import { getClient } from "@/services/crm";
 import { getProject } from "@/services/projects";
 import type { Invoice, Client, InvoiceItem, Project } from "@/types";
-import { formatDate, formatCurrency } from "@/utils";
+import { formatDate, formatCurrency, documentRef } from "@/utils";
 import { useParams } from "next/navigation";
 import { sendInvoiceSMS } from "@/services/sms";
 
@@ -131,7 +131,7 @@ export default function InvoiceDetailPage() {
     );
   }
 
-  const invoiceRef = `APP-INV-${new Date(invoice.$createdAt).getFullYear()}-${invoice.$id.slice(-4).toUpperCase()}`;
+  const invoiceRef = documentRef("APP-INV", invoice.$createdAt, invoice.$id);
 
   return (
     <>

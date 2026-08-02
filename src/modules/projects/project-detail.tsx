@@ -6,7 +6,7 @@ import Link from "next/link";
 import { getProject, updateProject } from "@/services/projects";
 import { getClient } from "@/services/crm";
 import type { Project, Client, Invoice } from "@/types";
-import { formatDate, formatCurrency } from "@/utils";
+import { formatDate, formatCurrency, documentRef } from "@/utils";
 import { databases, DB_ID, COLLECTIONS, Query } from "@/lib/appwrite/client";
 
 interface ProjectDetailProps {
@@ -202,7 +202,7 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
             {invoices.length > 0 ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {invoices.map((inv) => {
-                  const ref = `APP-INV-${new Date(inv.$createdAt).getFullYear()}-${inv.$id.slice(-4).toUpperCase()}`;
+                  const ref = documentRef("APP-INV", inv.$createdAt, inv.$id);
                   return (
                     <div key={inv.$id} style={{ padding: 10, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", display: "flex", flexDirection: "column", gap: 6 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>

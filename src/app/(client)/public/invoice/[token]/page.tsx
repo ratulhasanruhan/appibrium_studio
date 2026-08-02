@@ -5,9 +5,9 @@ import { ShieldAlert, Loader2, Printer, Check, Copy } from "lucide-react";
 import { getInvoiceByToken, getInvoiceItems } from "@/services/invoices";
 import { getClient } from "@/services/crm";
 import type { Invoice, Client, InvoiceItem } from "@/types";
-import { formatDate, formatCurrency } from "@/utils";
+import { formatDate, formatCurrency, documentRef } from "@/utils";
 import { useParams } from "next/navigation";
-import { databases, DB_ID, COLLECTIONS, Query } from "@/lib/appwrite/client";
+import { getBankDetails } from "@/services/settings";
 
 export default function PublicInvoicePortal() {
   const params = useParams();
@@ -34,25 +34,14 @@ export default function PublicInvoicePortal() {
       const inv = await getInvoiceByToken(token);
       if (inv) {
         setInvoice(inv);
-        const [cl, lineItems, settingsRes] = await Promise.all([
+        const [cl, lineItems, bank] = await Promise.all([
           getClient(inv.client_id),
           getInvoiceItems(inv.$id),
-          databases.listDocuments(DB_ID, COLLECTIONS.WORKSPACE_SETTINGS, [Query.limit(1)]),
+          getBankDetails(),
         ]);
         setClient(cl);
         setItems(lineItems);
-
-        if (settingsRes.documents.length > 0) {
-          const doc = settingsRes.documents[0] as any;
-          if (doc.bank_details) {
-            try {
-              const bd = typeof doc.bank_details === "string"
-                ? JSON.parse(doc.bank_details)
-                : doc.bank_details;
-              setBankDetails(bd);
-            } catch (_) {}
-          }
-        }
+        setBankDetails(bank);
       }
       setLoading(false);
     }
@@ -79,7 +68,7 @@ export default function PublicInvoicePortal() {
     );
   }
 
-  const invoiceRef = `APP-INV-${new Date(invoice.$createdAt).getFullYear()}-${invoice.$id.slice(-4).toUpperCase()}`;
+  const invoiceRef = documentRef("APP-INV", invoice.$createdAt, invoice.$id);
   const currency   = invoice.currency || "BDT";
 
   // Bank details state loaded from workspace settings

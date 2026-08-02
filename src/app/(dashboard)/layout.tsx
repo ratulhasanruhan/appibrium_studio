@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { account, databases, DB_ID, COLLECTIONS, Query } from "@/lib/appwrite/client";
 import { Sidebar } from "@/components/sidebar";
 import { ProfileCompleteModal } from "@/components/profile-complete-modal";
+import { hasAdminRole } from "@/utils";
 
 export default function DashboardLayout({
   children,
@@ -21,9 +22,7 @@ export default function DashboardLayout({
       .then(async (user) => {
         try {
           const labels = (user as any).labels || [];
-          const isAdmin = labels.some((l: string) => 
-            ["owner", "admin", "administrator", "manager", "finance"].includes(l.toLowerCase())
-          );
+          const isAdmin = hasAdminRole(labels);
 
           if (!isAdmin) {
             // Check if client document exists with their email

@@ -6,7 +6,7 @@ import { getProposalByToken, updateProposal } from "@/services/proposals";
 import { getClient } from "@/services/crm";
 import { createProject } from "@/services/projects";
 import type { Proposal, Client } from "@/types";
-import { formatDate } from "@/utils";
+import { formatDate, documentRef } from "@/utils";
 import { useParams, useSearchParams } from "next/navigation";
 import { account } from "@/lib/appwrite/client";
 
@@ -176,7 +176,7 @@ function PublicProposalPortalContent() {
     );
   }
 
-  const proposalRef = `APP-PROP-${new Date(proposal.$createdAt).getFullYear()}-${proposal.$id.slice(-4).toUpperCase()}`;
+  const proposalRef = documentRef("APP-PROP", proposal.$createdAt, proposal.$id);
 
   // Check client authorization status
   const isAuthorized = currentUser && client && (currentUser.email === client.email);

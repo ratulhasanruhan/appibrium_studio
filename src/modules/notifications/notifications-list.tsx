@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Bell, Eye, EyeOff, Check, Loader2, ArrowRight, Plus, X, AlertCircle } from "lucide-react";
 import type { Notification, Client } from "@/types";
-import { formatRelativeTime } from "@/utils";
+import { formatRelativeTime, hasAdminRole } from "@/utils";
 import { getNotifications, markNotificationAsRead, createNotification } from "@/services/notifications";
 import { getClients } from "@/services/crm";
 import { sendCustomNotificationEmail } from "@/services/email";
@@ -51,7 +51,7 @@ export function NotificationsList() {
         const user = await account.get();
         setCurrentUser(user);
         const labels = user.labels || [];
-        const admin = labels.length > 0 && ["owner", "admin", "administrator", "manager", "finance"].includes(labels[0].toLowerCase());
+        const admin = hasAdminRole(labels);
         setIsAdmin(admin);
 
         if (admin) {
