@@ -126,6 +126,7 @@ const SCHEMA = {
   ],
   transactions: [
     { key: "client_id", type: "string", required: false },
+    { key: "project_id", type: "string", required: false },
     { key: "invoice_id", type: "string", required: false },
     { key: "type", type: "string", required: true },
     { key: "amount", type: "double", required: true },

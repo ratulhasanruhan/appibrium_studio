@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { Search, ArrowDownRight, ArrowUpRight, Plus, Loader2, X, AlertCircle, Check, DollarSign } from "lucide-react";
-import type { Transaction, Client } from "@/types";
+import type { Transaction, Client, Project } from "@/types";
 import { formatDate, formatCurrency } from "@/utils";
 import { getTransactions, createTransaction } from "@/services/transactions";
 import { getClients } from "@/services/crm";
+import { getProjects } from "@/services/projects";
 
 const TYPE_COLORS: Record<string, string> = {
   income: "#00965C",
@@ -17,6 +18,7 @@ const TYPE_COLORS: Record<string, string> = {
 export function TransactionsList() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [clients, setClients]           = useState<Client[]>([]);
+  const [projects, setProjects]         = useState<Project[]>([]);
   const [loading, setLoading]           = useState(true);
   const [search, setSearch]             = useState("");
   const [typeFilter, setTypeFilter]     = useState("all");
@@ -33,14 +35,16 @@ export function TransactionsList() {
   const [description, setDescription] = useState("");
   const [category, setCategory]   = useState("Marketing");
   const [clientId, setClientId]   = useState("");
+  const [projectId, setProjectId] = useState("");
   const [tDate, setTDate]         = useState(new Date().toISOString().slice(0, 10));
 
   async function loadData() {
     setLoading(true);
     try {
-      const [txList, cliList] = await Promise.all([getTransactions(), getClients()]);
+      const [txList, cliList, projList] = await Promise.all([getTransactions(), getClients(), getProjects()]);
       setTransactions(txList);
       setClients(cliList);
+      setProjects(projList);
     } catch (err) {
       console.error("[TransactionsList] load error:", err);
     } finally {
@@ -83,6 +87,7 @@ export function TransactionsList() {
       category: category || undefined,
       description,
       client_id: clientId || undefined,
+      project_id: projectId || undefined,
       transaction_date: tDate,
     });
 
@@ -92,7 +97,7 @@ export function TransactionsList() {
       setTimeout(() => {
         setShowModal(false);
         setSaveStatus("idle");
-        setAmount(0); setDescription(""); setCategory("Marketing"); setClientId(""); setTDate(new Date().toISOString().slice(0, 10));
+        setAmount(0); setDescription(""); setCategory("Marketing"); setClientId(""); setProjectId(""); setTDate(new Date().toISOString().slice(0, 10));
         loadData();
       }, 800);
     } else {
@@ -304,14 +309,27 @@ export function TransactionsList() {
                 </div>
               </div>
 
-              <div>
-                <label style={labelStyle}>Related Client (Optional)</label>
-                <select className="input-base" value={clientId} onChange={(e) => setClientId(e.target.value)}>
-                  <option value="">None</option>
-                  {clients.map((c) => (
-                    <option key={c.$id} value={c.$id}>{c.name}</option>
-                  ))}
-                </select>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <label style={labelStyle}>Related Client (Optional)</label>
+                  <select className="input-base" value={clientId} onChange={(e) => { setClientId(e.target.value); setProjectId(""); }}>
+                    <option value="">None</option>
+                    {clients.map((c) => (
+                      <option key={c.$id} value={c.$id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Related Project (Optional)</label>
+                  <select className="input-base" value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+                    <option value="">None</option>
+                    {projects
+                      .filter((p) => !clientId || p.client_id === clientId)
+                      .map((p) => (
+                        <option key={p.$id} value={p.$id}>{p.name}</option>
+                      ))}
+                  </select>
+                </div>
               </div>
 
               {saveStatus === "error" && (

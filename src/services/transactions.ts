@@ -1,12 +1,17 @@
 import { databases, DB_ID, COLLECTIONS, ID, Query } from "@/lib/appwrite/client";
 import type { Transaction, ActionResult } from "@/types";
 
-export async function getTransactions(): Promise<Transaction[]> {
+export interface TransactionFilter {
+  clientId?: string;
+  projectId?: string;
+}
+
+export async function getTransactions(filter: TransactionFilter = {}): Promise<Transaction[]> {
   try {
-    const res = await databases.listDocuments(DB_ID, COLLECTIONS.TRANSACTIONS, [
-      Query.orderDesc("$createdAt"),
-      Query.limit(100),
-    ]);
+    const queries = [Query.orderDesc("$createdAt"), Query.limit(100)];
+    if (filter.clientId) queries.push(Query.equal("client_id", filter.clientId));
+    if (filter.projectId) queries.push(Query.equal("project_id", filter.projectId));
+    const res = await databases.listDocuments(DB_ID, COLLECTIONS.TRANSACTIONS, queries);
     return res.documents as unknown as Transaction[];
   } catch (error) {
     console.error("[Transactions] getTransactions error:", error);
@@ -20,8 +25,17 @@ export async function createTransaction(
   try {
     const res = await databases.createDocument(DB_ID, COLLECTIONS.TRANSACTIONS, ID.unique(), data);
     return { success: true, data: res as unknown as Transaction };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[Transactions] createTransaction error:", error);
-    return { success: false, error: error.message || "Failed to log transaction" };
+    return { success: false, error: error instanceof Error ? error.message : "Failed to log transaction" };
+  }
+}
+
+export async function deleteTransaction(id: string): Promise<ActionResult<void>> {
+  try {
+    await databases.deleteDocument(DB_ID, COLLECTIONS.TRANSACTIONS, id);
+    return { success: true };
+  } catch (error: unknown) {
+    return { success: false, error: error instanceof Error ? error.message : "Failed to delete transaction" };
   }
 }

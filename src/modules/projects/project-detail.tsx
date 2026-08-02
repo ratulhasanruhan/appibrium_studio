@@ -1,13 +1,17 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { FolderKanban, Users, Calendar, DollarSign, ArrowLeft, Loader2, Check, AlertCircle, ExternalLink, Briefcase, FileText } from "lucide-react";
+import {
+  FolderKanban, Users, Calendar, ArrowLeft, Loader2, Check, AlertCircle,
+  ExternalLink, Receipt, Wallet, TrendingUp, TrendingDown, PiggyBank,
+} from "lucide-react";
 import Link from "next/link";
 import { getProject, updateProject } from "@/services/projects";
 import { getClient } from "@/services/crm";
-import type { Project, Client, Invoice } from "@/types";
+import { getInvoices } from "@/services/invoices";
+import { getTransactions } from "@/services/transactions";
+import type { Project, Client, Invoice, Transaction } from "@/types";
 import { formatDate, formatCurrency, documentRef } from "@/utils";
-import { databases, DB_ID, COLLECTIONS, Query } from "@/lib/appwrite/client";
 
 interface ProjectDetailProps {
   id: string;
@@ -21,34 +25,53 @@ const STATUS_BADGE: Record<string, string> = {
   cancelled: "badge-cancelled",
 };
 
+const INVOICE_STATUS: Record<string, { bg: string; color: string }> = {
+  draft:     { bg: "#F5F5F5", color: "#6B7280" },
+  sent:      { bg: "#EEF4FF", color: "#3B72D4" },
+  paid:      { bg: "#E6FAF3", color: "#00965C" },
+  overdue:   { bg: "#FEF2F2", color: "#D14F4F" },
+  cancelled: { bg: "#F5F5F5", color: "#9CA3AF" },
+};
+
+const TYPE_COLOR: Record<string, string> = {
+  income: "#00965C", expense: "#D14F4F", advance: "#3B72D4", refund: "#B45309",
+};
+
+/** Money that reduces the project's net position. */
+const OUTFLOW_TYPES = ["expense", "refund"];
+
 export function ProjectDetail({ id }: ProjectDetailProps) {
   const [project, setProject] = useState<Project | null>(null);
-  const [client, setClient]   = useState<Client | null>(null);
+  const [client, setClient] = useState<Client | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Status Change state
-  const [status, setStatus]   = useState<Project["status"]>("planning");
+  const [status, setStatus] = useState<Project["status"]>("planning");
   const [updating, setUpdating] = useState(false);
   const [updateSuccess, setUpdateSuccess] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     async function load() {
-      setLoading(true);
       const proj = await getProject(id);
+      if (cancelled) return;
       if (proj) {
         setProject(proj);
         setStatus(proj.status);
-        const [cl, invoicesRes] = await Promise.all([
+        const [cl, invs, txs] = await Promise.all([
           getClient(proj.client_id),
-          databases.listDocuments(DB_ID, COLLECTIONS.INVOICES, [Query.equal("project_id", id)]),
+          getInvoices(),
+          getTransactions({ projectId: id }),
         ]);
         setClient(cl);
-        setInvoices(invoicesRes.documents as unknown as Invoice[]);
+        setInvoices(invs.filter((i) => i.project_id === id));
+        setTransactions(txs);
       }
-      setLoading(false);
+      if (!cancelled) setLoading(false);
     }
     load();
+    return () => { cancelled = true; };
   }, [id]);
 
   async function handleStatusChange(newStatus: Project["status"]) {
@@ -60,9 +83,7 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
     if (res.success) {
       setUpdateSuccess(true);
       setTimeout(() => setUpdateSuccess(false), 2000);
-      if (project) {
-        setProject({ ...project, status: newStatus });
-      }
+      if (project) setProject({ ...project, status: newStatus });
     } else {
       alert("Failed to update project status: " + res.error);
     }
@@ -89,21 +110,60 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
     );
   }
 
+  const currency = project.currency || "BDT";
+  const budget = project.budget || 0;
+
+  // ── Financials ──────────────────────────────────────────────────────── //
+  // Billed = everything actually issued to the client. Drafts aren't issued
+  // yet and cancelled invoices are never collectable, so both are excluded.
+  const billed = invoices
+    .filter((i) => i.status !== "draft" && i.status !== "cancelled")
+    .reduce((s, i) => s + (i.total || 0), 0);
+  const received = invoices
+    .filter((i) => i.status === "paid")
+    .reduce((s, i) => s + (i.total || 0), 0);
+  const outstanding = Math.max(billed - received, 0);   // issued but unpaid
+  const notYetBilled = Math.max(budget - billed, 0);    // budget left to invoice
+  const dueFromClient = Math.max(budget - received, 0); // total still to collect
+
+  const expenses = transactions
+    .filter((t) => OUTFLOW_TYPES.includes(t.type))
+    .reduce((s, t) => s + (t.amount || 0), 0);
+  // Income already counted through paid invoices must not be double-counted.
+  const otherIncome = transactions
+    .filter((t) => !OUTFLOW_TYPES.includes(t.type) && !t.invoice_id)
+    .reduce((s, t) => s + (t.amount || 0), 0);
+  const net = received + otherIncome - expenses;
+  const collectedPct = budget > 0 ? Math.min(Math.round((received / budget) * 100), 100) : 0;
+
+  const stats = [
+    { label: "Budget",      value: budget,      color: "var(--foreground)",                 icon: PiggyBank,    hint: "Agreed project value" },
+    { label: "Invoiced",    value: billed,      color: "#3B72D4",                           icon: Receipt,      hint: "Issued to the client (excludes drafts and cancelled)" },
+    { label: "Received",    value: received,    color: "#00965C",                           icon: TrendingUp,   hint: "Paid invoices" },
+    { label: "Outstanding", value: outstanding, color: "#B45309",                           icon: Wallet,       hint: "Invoiced but awaiting payment" },
+    { label: "Expenses",    value: expenses,    color: "#D14F4F",                           icon: TrendingDown, hint: "Costs logged against this project" },
+    { label: "Net Position",value: net,         color: net >= 0 ? "#00965C" : "#D14F4F",    icon: PiggyBank,    hint: "Received plus other income, minus expenses" },
+  ];
+
+  const thStyle = (right: boolean): React.CSSProperties => ({
+    padding: "8px 12px", textAlign: right ? "right" : "left", fontSize: 10, fontWeight: 700,
+    color: "var(--foreground-muted)", textTransform: "uppercase", letterSpacing: "0.05em",
+  });
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* Back Button */}
       <div>
         <Link href="/projects" style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, color: "var(--foreground-muted)", textDecoration: "none" }}>
           <ArrowLeft size={14} /> Back to Projects list
         </Link>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20 }}>
-        {/* Left Side: General Overview */}
+      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20, alignItems: "start" }}>
+        {/* ─── Left column ─── */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {/* Main Card */}
+          {/* Header */}
           <div className="card">
-            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
               <div style={{ width: 36, height: 36, borderRadius: "var(--radius-md)", background: "var(--accent-subtle)", color: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <FolderKanban size={18} />
               </div>
@@ -114,59 +174,174 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
                 </span>
               </div>
             </div>
-
             <div style={{ height: 1, background: "var(--border)", margin: "12px 0" }} />
-
-            <h3 style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--foreground-muted)", marginBottom: 8 }}>Project Description</h3>
+            <h3 style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--foreground-muted)", marginBottom: 8 }}>Description</h3>
             <p style={{ fontSize: 13, color: "var(--foreground-2)", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
               {project.description || "No description provided for this project."}
             </p>
           </div>
 
-          {/* Dates & Budget Metadata */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-            <div className="card">
-              <h3 style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--foreground-muted)", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
-                <Calendar size={13} /> Project Timeline
-              </h3>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                  <span style={{ color: "var(--foreground-muted)" }}>Start Date</span>
-                  <span style={{ fontWeight: 600, color: "var(--foreground)" }}>{project.start_date ? formatDate(project.start_date) : "—"}</span>
+          {/* Financial summary */}
+          <div className="card">
+            <h3 style={{ fontSize: 13, fontWeight: 600, fontFamily: "var(--font-heading)", marginBottom: 14 }}>Financial Summary</h3>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, marginBottom: 16 }}>
+              {stats.map(({ label, value, color, icon: Icon, hint }) => (
+                <div key={label} title={hint} style={{ padding: "12px 14px", borderRadius: "var(--radius-md)", background: "var(--surface)", border: "1px solid var(--border)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 6 }}>
+                    <Icon size={11} style={{ color: "var(--foreground-muted)" }} />
+                    <span style={{ fontSize: 9.5, fontWeight: 700, color: "var(--foreground-muted)", textTransform: "uppercase", letterSpacing: "0.06em" }}>{label}</span>
+                  </div>
+                  <p style={{ fontFamily: "var(--font-heading)", fontSize: 17, fontWeight: 700, letterSpacing: "-0.02em", color }}>
+                    {formatCurrency(value, currency)}
+                  </p>
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                  <span style={{ color: "var(--foreground-muted)" }}>Target End Date</span>
-                  <span style={{ fontWeight: 600, color: "var(--foreground)" }}>{project.end_date ? formatDate(project.end_date) : "—"}</span>
-                </div>
-              </div>
+              ))}
             </div>
 
-            <div className="card">
-              <h3 style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--foreground-muted)", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
-                <DollarSign size={13} /> Project Budget
-              </h3>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                  <span style={{ color: "var(--foreground-muted)" }}>Est. Budget</span>
-                  <span style={{ fontWeight: 700, color: "var(--accent)", fontSize: 13 }}>
-                    {project.budget ? formatCurrency(project.budget, project.currency) : "—"}
-                  </span>
+            {/* Collection progress */}
+            {budget > 0 && (
+              <div style={{ padding: "12px 14px", borderRadius: "var(--radius-md)", background: "var(--background-alt)", border: "1px solid var(--border)" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+                  <span style={{ fontSize: 11, fontWeight: 600, color: "var(--foreground-2)" }}>Collected against budget</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, fontFamily: "var(--font-heading)", color: "var(--accent)" }}>{collectedPct}%</span>
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                  <span style={{ color: "var(--foreground-muted)" }}>Currency</span>
-                  <span style={{ fontWeight: 600, color: "var(--foreground)" }}>{project.currency || "BDT"}</span>
+                <div style={{ height: 7, borderRadius: 99, background: "var(--surface)", overflow: "hidden", border: "1px solid var(--border)" }}>
+                  <div style={{ width: `${collectedPct}%`, height: "100%", background: "linear-gradient(90deg,#00B872,#00E090)", borderRadius: 99 }} />
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginTop: 8, fontSize: 11, color: "var(--foreground-muted)" }}>
+                  <span>Still to collect: <strong style={{ color: dueFromClient > 0 ? "#D14F4F" : "#00965C" }}>{formatCurrency(dueFromClient, currency)}</strong></span>
+                  <span>Not yet invoiced: <strong style={{ color: "var(--foreground-2)" }}>{formatCurrency(notYetBilled, currency)}</strong></span>
                 </div>
               </div>
+            )}
+          </div>
+
+          {/* Invoices */}
+          <div className="card">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <h3 style={{ fontSize: 13, fontWeight: 600, fontFamily: "var(--font-heading)", display: "flex", alignItems: "center", gap: 6 }}>
+                <Receipt size={14} style={{ color: "var(--accent)" }} /> Invoices
+                <span style={{ fontSize: 11, fontWeight: 500, color: "var(--foreground-muted)" }}>({invoices.length})</span>
+              </h3>
+              <Link href="/invoices/new" className="btn btn-ghost" style={{ fontSize: 11, padding: "4px 10px" }}>New Invoice</Link>
             </div>
+            {invoices.length === 0 ? (
+              <p style={{ fontSize: 12, color: "var(--foreground-muted)", padding: "12px 0" }}>No invoices raised for this project yet.</p>
+            ) : (
+              <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-md)", overflow: "hidden" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ background: "var(--surface)", borderBottom: "1px solid var(--border)" }}>
+                      {["Invoice", "Issued", "Due", "Status", "Amount"].map((h, i) => (
+                        <th key={h} style={thStyle(i === 4)}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invoices.map((inv) => {
+                      const st = INVOICE_STATUS[inv.status] ?? INVOICE_STATUS.draft;
+                      return (
+                        <tr key={inv.$id} style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+                          <td style={{ padding: "10px 12px" }}>
+                            <Link href={`/invoices/${inv.$id}`} style={{ fontSize: 12, fontWeight: 600, color: "var(--foreground)", textDecoration: "none" }}>{inv.title}</Link>
+                            <p style={{ fontSize: 10, color: "var(--foreground-muted)", fontFamily: "var(--font-mono, monospace)" }}>{documentRef("APP-INV", inv.$createdAt, inv.$id)}</p>
+                          </td>
+                          <td style={{ padding: "10px 12px", color: "var(--foreground-muted)" }}>{formatDate(inv.issue_date)}</td>
+                          <td style={{ padding: "10px 12px", color: inv.status === "overdue" ? "#D14F4F" : "var(--foreground-muted)" }}>{formatDate(inv.due_date)}</td>
+                          <td style={{ padding: "10px 12px" }}>
+                            <span style={{ display: "inline-block", padding: "2px 9px", borderRadius: 99, fontSize: 10.5, fontWeight: 600, background: st.bg, color: st.color, textTransform: "capitalize" }}>{inv.status}</span>
+                          </td>
+                          <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700, fontFamily: "var(--font-heading)", color: "var(--foreground)" }}>{formatCurrency(inv.total, inv.currency || currency)}</td>
+                        </tr>
+                      );
+                    })}
+                    <tr style={{ background: "var(--surface)" }}>
+                      <td colSpan={4} style={{ padding: "10px 12px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--foreground-muted)" }}>Total invoiced</td>
+                      <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 800, fontFamily: "var(--font-heading)", fontSize: 13, color: "var(--accent)" }}>{formatCurrency(billed, currency)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Transactions */}
+          <div className="card">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <h3 style={{ fontSize: 13, fontWeight: 600, fontFamily: "var(--font-heading)", display: "flex", alignItems: "center", gap: 6 }}>
+                <Wallet size={14} style={{ color: "var(--accent)" }} /> Expenses &amp; Transactions
+                <span style={{ fontSize: 11, fontWeight: 500, color: "var(--foreground-muted)" }}>({transactions.length})</span>
+              </h3>
+              <Link href="/transactions" className="btn btn-ghost" style={{ fontSize: 11, padding: "4px 10px" }}>Log Transaction</Link>
+            </div>
+            {transactions.length === 0 ? (
+              <p style={{ fontSize: 12, color: "var(--foreground-muted)", padding: "12px 0" }}>
+                No transactions linked to this project. Log one from Transactions and pick this project to track its costs here.
+              </p>
+            ) : (
+              <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-md)", overflow: "hidden" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ background: "var(--surface)", borderBottom: "1px solid var(--border)" }}>
+                      {["Description", "Category", "Date", "Type", "Amount"].map((h, i) => (
+                        <th key={h} style={thStyle(i === 4)}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {transactions.map((t) => {
+                      const out = OUTFLOW_TYPES.includes(t.type);
+                      return (
+                        <tr key={t.$id} style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+                          <td style={{ padding: "10px 12px", fontWeight: 600, color: "var(--foreground)" }}>{t.description}</td>
+                          <td style={{ padding: "10px 12px", color: "var(--foreground-2)" }}>{t.category || "General"}</td>
+                          <td style={{ padding: "10px 12px", color: "var(--foreground-muted)" }}>{formatDate(t.transaction_date)}</td>
+                          <td style={{ padding: "10px 12px" }}>
+                            <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: TYPE_COLOR[t.type] || "var(--foreground-muted)" }}>{t.type}</span>
+                          </td>
+                          <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700, fontFamily: "var(--font-heading)", color: TYPE_COLOR[t.type] }}>
+                            {out ? "−" : "+"}{formatCurrency(t.amount, t.currency || currency)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    <tr style={{ background: "var(--surface)" }}>
+                      <td colSpan={4} style={{ padding: "10px 12px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--foreground-muted)" }}>Total expenses</td>
+                      <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 800, fontFamily: "var(--font-heading)", fontSize: 13, color: "#D14F4F" }}>−{formatCurrency(expenses, currency)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Right Side: Client Info & Controls */}
+        {/* ─── Right column ─── */}
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          {/* Client Details */}
+          <div className="card">
+            <h3 style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--foreground-muted)", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
+              <Calendar size={13} /> Timeline
+            </h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                <span style={{ color: "var(--foreground-muted)" }}>Start Date</span>
+                <span style={{ fontWeight: 600, color: "var(--foreground)" }}>{project.start_date ? formatDate(project.start_date) : "—"}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                <span style={{ color: "var(--foreground-muted)" }}>Target End</span>
+                <span style={{ fontWeight: 600, color: "var(--foreground)" }}>{project.end_date ? formatDate(project.end_date) : "—"}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                <span style={{ color: "var(--foreground-muted)" }}>Currency</span>
+                <span style={{ fontWeight: 600, color: "var(--foreground)" }}>{currency}</span>
+              </div>
+            </div>
+          </div>
+
           <div className="card">
             <h3 style={{ fontSize: 12, fontWeight: 700, fontFamily: "var(--font-heading)", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
-              <Users size={14} style={{ color: "var(--accent)" }} /> Client / Organization
+              <Users size={14} style={{ color: "var(--accent)" }} /> Client
             </h3>
             {client ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
@@ -194,68 +369,25 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
             )}
           </div>
 
-          {/* Linked Invoices */}
-          <div className="card">
-            <h3 style={{ fontSize: 12, fontWeight: 700, fontFamily: "var(--font-heading)", marginBottom: 12, display: "flex", alignItems: "center", gap: 6 }}>
-              <DollarSign size={14} style={{ color: "var(--accent)" }} /> Project Invoices
-            </h3>
-            {invoices.length > 0 ? (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {invoices.map((inv) => {
-                  const ref = documentRef("APP-INV", inv.$createdAt, inv.$id);
-                  return (
-                    <div key={inv.$id} style={{ padding: 10, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", display: "flex", flexDirection: "column", gap: 6 }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                        <Link href={`/invoices/${inv.$id}`} style={{ fontSize: 12, fontWeight: 600, color: "var(--foreground)", textDecoration: "none" }} className="hover-link">
-                          {inv.title}
-                        </Link>
-                      </div>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 2 }}>
-                        <span style={{ fontSize: 10, color: "var(--foreground-muted)", fontFamily: "var(--font-mono, monospace)" }}>{ref}</span>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--accent)" }}>{formatCurrency(inv.total, inv.currency)}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p style={{ fontSize: 12, color: "var(--foreground-muted)" }}>No invoices generated for this project.</p>
-            )}
-          </div>
-
-          {/* Status Controls */}
           <div className="card">
             <h3 style={{ fontSize: 12, fontWeight: 700, fontFamily: "var(--font-heading)", marginBottom: 12 }}>Manage Status</h3>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <div>
-                <label style={{ display: "block", fontSize: 10, fontWeight: 600, color: "var(--foreground-muted)", textTransform: "uppercase", marginBottom: 6 }}>Project Status</label>
-                <select
-                  className="input-base"
-                  value={status}
-                  onChange={(e) => handleStatusChange(e.target.value as any)}
-                  disabled={updating}
-                  style={{ fontSize: 12 }}
-                >
-                  <option value="planning">Planning</option>
-                  <option value="active">Active</option>
-                  <option value="completed">Completed</option>
-                  <option value="on_hold">On Hold</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
+            <select className="input-base" value={status} onChange={(e) => handleStatusChange(e.target.value as Project["status"])} disabled={updating} style={{ fontSize: 12 }}>
+              <option value="planning">Planning</option>
+              <option value="active">Active</option>
+              <option value="completed">Completed</option>
+              <option value="on_hold">On Hold</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+            {updating && (
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--foreground-muted)", marginTop: 10 }}>
+                <Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} /> Saving changes...
               </div>
-
-              {updating && (
-                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--foreground-muted)" }}>
-                  <Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} /> Saving changes...
-                </div>
-              )}
-
-              {updateSuccess && (
-                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#00965C" }}>
-                  <Check size={12} /> Status updated!
-                </div>
-              )}
-            </div>
+            )}
+            {updateSuccess && (
+              <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#00965C", marginTop: 10 }}>
+                <Check size={12} /> Status updated!
+              </div>
+            )}
           </div>
         </div>
       </div>

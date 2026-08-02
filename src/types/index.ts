@@ -161,6 +161,8 @@ export interface InvoiceItem {
 export interface Transaction {
   $id: string;
   client_id?: string;
+  /** Links an income or expense to a specific project. */
+  project_id?: string;
   invoice_id?: string;
   type: TransactionType;
   amount: number;
