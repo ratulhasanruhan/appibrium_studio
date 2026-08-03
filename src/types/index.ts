@@ -213,16 +213,6 @@ export interface Notification {
   $createdAt: string;
 }
 
-export interface AuditLog {
-  $id: string;
-  user_id: string;
-  action: string;
-  entity_type: string;
-  entity_id: string;
-  details?: string;
-  $createdAt: string;
-}
-
 export interface AppUser {
   $id: string;
   name: string;

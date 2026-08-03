@@ -45,7 +45,6 @@ export const COLLECTIONS = {
   FILES_METADATA:    process.env.NEXT_PUBLIC_COL_FILES_METADATA    ?? "files_metadata",
   NOTES:             process.env.NEXT_PUBLIC_COL_NOTES             ?? "notes",
   NOTIFICATIONS:     process.env.NEXT_PUBLIC_COL_NOTIFICATIONS     ?? "notifications",
-  AUDIT_LOGS:        process.env.NEXT_PUBLIC_COL_AUDIT_LOGS        ?? "audit_logs",
   SMS_LOGS:          process.env.NEXT_PUBLIC_COL_SMS_LOGS          ?? "sms_logs",
   WORKSPACE_SETTINGS:process.env.NEXT_PUBLIC_COL_WORKSPACE_SETTINGS ?? "workspace_settings",
   QUOTES:             process.env.NEXT_PUBLIC_COL_QUOTES             ?? "quotes",
