@@ -5,6 +5,7 @@ import { Topbar } from "@/components/topbar";
 import { Receipt, Calendar, DollarSign, ArrowLeft, Loader2, Check, AlertCircle, ExternalLink, Users, FileText, Smartphone } from "lucide-react";
 import Link from "next/link";
 import { getInvoice, updateInvoice, getInvoiceItems } from "@/services/invoices";
+import { getTransactions, createTransaction } from "@/services/transactions";
 import { getClient } from "@/services/crm";
 import { getProject } from "@/services/projects";
 import type { Invoice, Client, InvoiceItem, Project } from "@/types";
@@ -34,6 +35,7 @@ export default function InvoiceDetailPage() {
   const [status, setStatus]   = useState<Invoice["status"]>("draft");
   const [updating, setUpdating] = useState(false);
   const [updateSuccess, setUpdateSuccess] = useState(false);
+  const [bookedFlash, setBookedFlash] = useState("");
 
   // SMS Notice State
   const [smsSending, setSmsSending] = useState(false);
@@ -93,19 +95,48 @@ export default function InvoiceDetailPage() {
   }, [id]);
 
   async function handleStatusChange(newStatus: Invoice["status"]) {
+    if (!invoice) return;
+    const now = new Date().toISOString();
     setStatus(newStatus);
     setUpdating(true);
     setUpdateSuccess(false);
-    const res = await updateInvoice(id, { status: newStatus });
+
+    // Stamp the moment a status is reached, so the client-facing invoice can
+    // show "Paid on ..." and reports can measure how long payment took.
+    const patch: Partial<Invoice> = { status: newStatus };
+    if (newStatus === "paid" && !invoice.paid_at) patch.paid_at = now;
+    if (newStatus === "sent" && !invoice.sent_at) patch.sent_at = now;
+
+    const res = await updateInvoice(id, patch);
     setUpdating(false);
-    if (res.success) {
-      setUpdateSuccess(true);
-      setTimeout(() => setUpdateSuccess(false), 2000);
-      if (invoice) {
-        setInvoice({ ...invoice, status: newStatus });
-      }
-    } else {
+    if (!res.success) {
       alert("Failed to update status: " + res.error);
+      return;
+    }
+    setUpdateSuccess(true);
+    setTimeout(() => setUpdateSuccess(false), 2000);
+    setInvoice({ ...invoice, ...patch });
+
+    // Marking an invoice paid books the income once, tagged with invoice_id so
+    // project net position does not count it twice alongside the paid invoice.
+    if (newStatus === "paid" && !invoice.paid_at) {
+      const existing = await getTransactions({ clientId: invoice.client_id });
+      if (!existing.some((t) => t.invoice_id === invoice.$id)) {
+        await createTransaction({
+          type: "income",
+          amount: invoice.total,
+          currency: invoice.currency || "BDT",
+          status: "completed",
+          category: "Client Payment",
+          description: `Payment received — ${invoice.title}`,
+          transaction_date: now.slice(0, 10),
+          client_id: invoice.client_id,
+          project_id: invoice.project_id,
+          invoice_id: invoice.$id,
+        });
+        setBookedFlash("Income recorded in Transactions.");
+        setTimeout(() => setBookedFlash(""), 4000);
+      }
     }
   }
 
@@ -245,6 +276,12 @@ export default function InvoiceDetailPage() {
                 {updating && (
                   <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--foreground-muted)" }}>
                     <Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} /> Updating status...
+                  </div>
+                )}
+
+                {bookedFlash && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#00965C" }}>
+                    <Check size={12} /> {bookedFlash}
                   </div>
                 )}
 

@@ -19,6 +19,25 @@ export function isOutflow(t: Transaction): boolean {
   return OUTFLOW_TYPES.includes(t.type);
 }
 
+/**
+ * True when an unpaid invoice is past its due date.
+ *
+ * Derived rather than stored: relying on someone manually switching the status
+ * to "overdue" means the dashboard silently understates what is late.
+ */
+export function isOverdue(invoice: Invoice, asOf: Date = new Date()): boolean {
+  if (invoice.status === "paid" || invoice.status === "cancelled" || invoice.status === "draft") return false;
+  if (!invoice.due_date) return false;
+  const due = new Date(invoice.due_date);
+  due.setHours(23, 59, 59, 999);
+  return due < asOf;
+}
+
+/** Status to show for an invoice, upgrading "sent" to "overdue" once late. */
+export function effectiveInvoiceStatus(invoice: Invoice): Invoice["status"] {
+  return isOverdue(invoice) ? "overdue" : invoice.status;
+}
+
 /** Invoices that were never issued, or can never be collected. */
 function isCollectable(invoice: Invoice): boolean {
   return invoice.status !== "draft" && invoice.status !== "cancelled";

@@ -20,7 +20,7 @@ import { buildLetterBody } from "@/modules/letters/letter-templates";
 import { SIGNATORIES } from "@/lib/company-profile";
 import type { Project, Client, Invoice, Transaction, Person, Engagement } from "@/types";
 import { formatDate, formatCurrency, documentRef, randomToken } from "@/utils";
-import { calcProjectFinancials, isOutflow } from "@/lib/finance";
+import { calcProjectFinancials, isOutflow, effectiveInvoiceStatus } from "@/lib/finance";
 import { INVOICE_STATUS, PROJECT_STATUS_BADGE, TRANSACTION_TYPE_COLOR, ENGAGEMENT_STATUS, statusStyle } from "@/lib/status";
 
 interface ProjectDetailProps {
@@ -393,7 +393,8 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
                   </thead>
                   <tbody>
                     {invoices.map((inv) => {
-                      const st = statusStyle(INVOICE_STATUS, inv.status);
+                      const shown = effectiveInvoiceStatus(inv);
+                      const st = statusStyle(INVOICE_STATUS, shown);
                       return (
                         <tr key={inv.$id} style={{ borderBottom: "1px solid var(--border-subtle)" }}>
                           <td style={{ padding: "10px 12px" }}>
@@ -401,9 +402,9 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
                             <p style={{ fontSize: 10, color: "var(--foreground-muted)", fontFamily: "var(--font-mono, monospace)" }}>{documentRef("APP-INV", inv.$createdAt, inv.$id)}</p>
                           </td>
                           <td style={{ padding: "10px 12px", color: "var(--foreground-muted)" }}>{formatDate(inv.issue_date)}</td>
-                          <td style={{ padding: "10px 12px", color: inv.status === "overdue" ? "#D14F4F" : "var(--foreground-muted)" }}>{formatDate(inv.due_date)}</td>
+                          <td style={{ padding: "10px 12px", color: shown === "overdue" ? "#D14F4F" : "var(--foreground-muted)" }}>{formatDate(inv.due_date)}</td>
                           <td style={{ padding: "10px 12px" }}>
-                            <span style={{ display: "inline-block", padding: "2px 9px", borderRadius: 99, fontSize: 10.5, fontWeight: 600, background: st.bg, color: st.color, textTransform: "capitalize" }}>{inv.status}</span>
+                            <span style={{ display: "inline-block", padding: "2px 9px", borderRadius: 99, fontSize: 10.5, fontWeight: 600, background: st.bg, color: st.color, textTransform: "capitalize" }}>{shown}</span>
                           </td>
                           <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700, fontFamily: "var(--font-heading)", color: "var(--foreground)" }}>{formatCurrency(inv.total, inv.currency || currency)}</td>
                         </tr>

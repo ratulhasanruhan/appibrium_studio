@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Search, Receipt, ExternalLink, MessageSquare, Loader2, Trash2 } from "lucide-react";
 import type { Invoice, Client } from "@/types";
 import { formatDate, formatCurrency, documentRef, hasAdminRole } from "@/utils";
+import { effectiveInvoiceStatus, isOverdue } from "@/lib/finance";
 import Link from "next/link";
 import { getInvoices, deleteInvoice } from "@/services/invoices";
 import { getClients } from "@/services/crm";
@@ -114,6 +115,7 @@ export function InvoiceList() {
 
   const totalInvoiced   = invoices.reduce((s, i) => s + i.total, 0);
   const totalOutstanding = invoices.filter((i) => i.status === "sent" || i.status === "overdue").reduce((s, i) => s + i.total, 0);
+  const overdueCount = invoices.filter((i) => isOverdue(i)).length;
   const totalPaid       = invoices.filter((i) => i.status === "paid").reduce((s, i) => s + i.total, 0);
   const totalDraft      = invoices.filter((i) => i.status === "draft").reduce((s, i) => s + i.total, 0);
 

@@ -6,6 +6,7 @@ import { getInvoiceByToken, getInvoiceItems } from "@/services/invoices";
 import { getClient } from "@/services/crm";
 import type { Invoice, Client, InvoiceItem } from "@/types";
 import { formatDate, formatCurrency, documentRef } from "@/utils";
+import { effectiveInvoiceStatus } from "@/lib/finance";
 import { useParams } from "next/navigation";
 import { getBankDetails } from "@/services/settings";
 
@@ -80,7 +81,8 @@ export default function PublicInvoicePortal() {
     draft:     { bg: "#F5F5F5", color: "#9CA3AF", label: "Draft" },
     cancelled: { bg: "#F5F5F5", color: "#9CA3AF", label: "Cancelled" },
   };
-  const statusInfo = statusColors[invoice.status] ?? statusColors["draft"];
+  const shownStatus = effectiveInvoiceStatus(invoice);
+  const statusInfo = statusColors[shownStatus] ?? statusColors["draft"];
 
   return (
     <div className="invoice-portal">
@@ -138,7 +140,7 @@ export default function PublicInvoicePortal() {
             </div>
             <div className="inv-strip-item">
               <span className="strip-label">Due Date</span>
-              <span className="strip-value" style={{ color: invoice.status === "overdue" ? "#D14F4F" : undefined }}>
+              <span className="strip-value" style={{ color: shownStatus === "overdue" ? "#D14F4F" : undefined }}>
                 {formatDate(invoice.due_date)}
               </span>
             </div>

@@ -241,6 +241,25 @@ const SCHEMA = {
   ],
 };
 
+// Indexes for every field the app filters or looks up by. Without these
+// Appwrite full-scans the collection on each query, and public token lookups
+// (invoice/proposal/letter/report pages) are the hottest paths in the app.
+const INDEXES = {
+  contacts:      [["client_id", "key"]],
+  projects:      [["client_id", "key"]],
+  proposals:     [["client_id", "key"], ["public_token", "unique"], ["status", "key"]],
+  invoices:      [["client_id", "key"], ["project_id", "key"], ["public_token", "unique"], ["status", "key"], ["due_date", "key"]],
+  invoice_items: [["invoice_id", "key"]],
+  transactions:  [["client_id", "key"], ["project_id", "key"], ["person_id", "key"], ["engagement_id", "key"], ["invoice_id", "key"]],
+  files_metadata:[["client_id", "key"], ["project_id", "key"]],
+  notes:         [["client_id", "key"], ["project_id", "key"]],
+  notifications: [["user_id", "key"], ["is_read", "key"]],
+  letters:       [["client_id", "key"], ["public_token", "unique"], ["reference", "key"], ["status", "key"]],
+  people:        [["public_token", "unique"], ["status", "key"]],
+  engagements:   [["person_id", "key"], ["project_id", "key"]],
+  quotes:        [["client_id", "key"]],
+};
+
 // Helper to delay execution
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -319,6 +338,25 @@ async function run() {
       }
     }
     console.log(`Collection "${collId}" schema fully synchronized.`);
+  }
+
+  // 2b. Create indexes
+  console.log("\n🔎 Synchronising indexes...");
+  for (const [collId, defs] of Object.entries(INDEXES)) {
+    for (const [attr, type] of defs) {
+      const key = `idx_${attr}`;
+      try {
+        await databases.getIndex(dbId, collId, key);
+      } catch (_) {
+        try {
+          await databases.createIndex(dbId, collId, key, type, [attr]);
+          console.log(`  ${collId}.${key} (${type}) created`);
+          await sleep(400);
+        } catch (idxErr) {
+          console.error(`  ${collId}.${key} failed: ${idxErr.message}`);
+        }
+      }
+    }
   }
 
   // 3. Create Storage Bucket
