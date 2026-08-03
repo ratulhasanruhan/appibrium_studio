@@ -148,6 +148,35 @@ export async function sendProposalNotification(clientEmail: string, clientName: 
   return sendEmail({ to: clientEmail, subject, html, attachments });
 }
 
+export async function sendPayoutNotification(
+  personEmail: string,
+  personName: string,
+  amount: string,
+  reference: string,
+  paidOn: string,
+  projectName?: string,
+  outstanding?: string
+) {
+  const subject = `Payment Released: ${amount}`;
+  const html = `
+    <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+      <h2 style="color: #0d2317; font-family: sans-serif; font-size: 18px; margin-bottom: 12px;">Hello ${personName},</h2>
+      <p style="font-size: 14px; color: #334155; line-height: 1.5; margin-bottom: 20px;">This is to confirm that a payment has been released to you by Appibrium Technology Co.</p>
+      <div style="background: #f4fbf7; padding: 16px; border-radius: 6px; margin: 20px 0; border: 1px solid #d6ede1;">
+        <p style="margin: 0; font-size: 12px; font-weight: 700; color: #6b8f7c; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Payment details</p>
+        <p style="margin: 4px 0; color: #00b872; font-size: 20px; font-weight: 700;">${amount}</p>
+        <p style="margin: 8px 0 0 0; color: #334155; font-size: 13px;">For: <strong>${reference}</strong></p>
+        ${projectName ? `<p style="margin: 4px 0 0 0; color: #334155; font-size: 13px;">Project: <strong>${projectName}</strong></p>` : ""}
+        <p style="margin: 4px 0 0 0; color: #334155; font-size: 13px;">Date: <strong>${paidOn}</strong></p>
+      </div>
+      ${outstanding ? `<p style="font-size: 13px; color: #334155; line-height: 1.5;">Remaining balance on your engagements: <strong>${outstanding}</strong></p>` : ""}
+      <p style="font-size: 14px; color: #334155; line-height: 1.5;">Please confirm receipt of this payment. If anything looks incorrect, reply to this email and we will review it right away.</p>
+      <p style="margin-top: 30px; font-size: 12px; color: #6b8f7c; border-top: 1px solid #f1f5f9; padding-top: 14px;">Thank you for your work,<br><strong>Appibrium Technology Co.</strong></p>
+    </div>
+  `;
+  return sendEmail({ to: personEmail, subject, html });
+}
+
 export async function sendCustomNotificationEmail(
   clientEmail: string,
   clientName: string,

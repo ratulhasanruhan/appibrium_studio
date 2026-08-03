@@ -123,6 +123,22 @@ export async function sendInvoiceSMS(
   return sendSMS({ to: phone, message });
 }
 
+/**
+ * Confirm a payout to a team member.
+ */
+export async function sendPayoutSMS(
+  phone: string,
+  personName: string,
+  amount: string,
+  reference: string
+): Promise<SMSResult> {
+  const message =
+    `Dear ${personName}, a payment of ${amount} has been released by Appibrium ` +
+    `for ${reference}. Please confirm receipt. Thank you.`;
+
+  return sendSMS({ to: phone, message });
+}
+
 export async function sendCustomSMS(phone: string, title: string, message: string): Promise<SMSResult> {
   const formattedMsg = `Alert: ${title} - ${message}`;
   return sendSMS({ to: phone, message: formattedMsg });

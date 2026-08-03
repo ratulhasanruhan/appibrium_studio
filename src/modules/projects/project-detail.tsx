@@ -3,17 +3,19 @@
 import React, { useState, useEffect } from "react";
 import {
   FolderKanban, Users, Calendar, ArrowLeft, Loader2, Check, AlertCircle,
-  ExternalLink, Receipt, Wallet, TrendingUp, TrendingDown, PiggyBank,
+  ExternalLink, Receipt, Wallet, TrendingUp, TrendingDown, PiggyBank, UserPlus, Trash2, X,
 } from "lucide-react";
 import Link from "next/link";
 import { getProject, updateProject } from "@/services/projects";
 import { getClient } from "@/services/crm";
 import { getInvoices } from "@/services/invoices";
 import { getTransactions } from "@/services/transactions";
-import type { Project, Client, Invoice, Transaction } from "@/types";
+import { getPeople } from "@/services/people";
+import { getEngagements, createEngagement, deleteEngagement } from "@/services/engagements";
+import type { Project, Client, Invoice, Transaction, Person, Engagement } from "@/types";
 import { formatDate, formatCurrency, documentRef } from "@/utils";
 import { calcProjectFinancials, isOutflow } from "@/lib/finance";
-import { INVOICE_STATUS, PROJECT_STATUS_BADGE, TRANSACTION_TYPE_COLOR, statusStyle } from "@/lib/status";
+import { INVOICE_STATUS, PROJECT_STATUS_BADGE, TRANSACTION_TYPE_COLOR, ENGAGEMENT_STATUS, statusStyle } from "@/lib/status";
 
 interface ProjectDetailProps {
   id: string;
@@ -24,6 +26,15 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
   const [client, setClient] = useState<Client | null>(null);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [people, setPeople] = useState<Person[]>([]);
+  const [engagements, setEngagements] = useState<Engagement[]>([]);
+
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [assignPersonId, setAssignPersonId] = useState("");
+  const [assignBudget, setAssignBudget] = useState(0);
+  const [assignTitle, setAssignTitle] = useState("");
+  const [assigning, setAssigning] = useState(false);
+  const [assignError, setAssignError] = useState("");
   const [loading, setLoading] = useState(true);
 
   const [status, setStatus] = useState<Project["status"]>("planning");
@@ -38,20 +49,67 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
       if (proj) {
         setProject(proj);
         setStatus(proj.status);
-        const [cl, invs, txs] = await Promise.all([
+        const [cl, invs, txs, ppl, engs] = await Promise.all([
           getClient(proj.client_id),
           getInvoices(),
           getTransactions({ projectId: id }),
+          getPeople(),
+          getEngagements({ projectId: id }),
         ]);
         setClient(cl);
         setInvoices(invs.filter((i) => i.project_id === id));
         setTransactions(txs);
+        setPeople(ppl);
+        setEngagements(engs);
       }
       if (!cancelled) setLoading(false);
     }
     load();
     return () => { cancelled = true; };
   }, [id]);
+
+  async function reloadTeam() {
+    const [ppl, engs, txs] = await Promise.all([
+      getPeople(), getEngagements({ projectId: id }), getTransactions({ projectId: id }),
+    ]);
+    setPeople(ppl); setEngagements(engs); setTransactions(txs);
+  }
+
+  async function handleAssign(e: React.FormEvent) {
+    e.preventDefault();
+    if (!assignPersonId || !assignBudget) {
+      setAssignError("Pick a person and set a budget.");
+      return;
+    }
+    setAssigning(true);
+    setAssignError("");
+    const person = people.find((p) => p.$id === assignPersonId);
+    const res = await createEngagement({
+      person_id: assignPersonId,
+      project_id: id,
+      title: assignTitle.trim() || `${project?.name ?? "Project"} — ${person?.role || "work"}`,
+      rate_type: person?.rate_type || "fixed",
+      agreed_amount: assignBudget,
+      currency: project?.currency || "BDT",
+      status: "active",
+      start_date: new Date().toISOString().slice(0, 10),
+    });
+    setAssigning(false);
+    if (res.success) {
+      setAssignOpen(false);
+      setAssignPersonId(""); setAssignBudget(0); setAssignTitle("");
+      reloadTeam();
+    } else {
+      setAssignError(res.error || "Failed to assign.");
+    }
+  }
+
+  async function handleUnassign(eid: string, name: string) {
+    if (!confirm(`Remove ${name} from this project? Payouts already recorded stay in the expense log.`)) return;
+    const res = await deleteEngagement(eid);
+    if (res.success) reloadTeam();
+    else alert("Failed to remove: " + res.error);
+  }
 
   async function handleStatusChange(newStatus: Project["status"]) {
     setStatus(newStatus);
@@ -94,6 +152,15 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
 
   const fin = calcProjectFinancials(budget, invoices, transactions);
 
+  // Team budget committed on this project, and how much of it has been paid.
+  const teamBudget = engagements
+    .filter((e) => e.status !== "cancelled")
+    .reduce((s2, e) => s2 + (e.agreed_amount || 0), 0);
+  const teamPaid = transactions
+    .filter((t) => t.person_id && isOutflow(t))
+    .reduce((s2, t) => s2 + (t.amount || 0), 0);
+  const teamDue = Math.max(teamBudget - teamPaid, 0);
+
   const stats = [
     { label: "Budget",      value: fin.budget,  color: "var(--foreground)",                 icon: PiggyBank,    hint: "Agreed project value" },
     { label: "Invoiced",    value: fin.billed,  color: "#3B72D4",                           icon: Receipt,      hint: "Issued to the client (excludes drafts and cancelled)" },
@@ -102,6 +169,11 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
     { label: "Expenses",    value: fin.expenses,color: "#D14F4F",                           icon: TrendingDown, hint: "Costs logged against this project" },
     { label: "Net Position",value: fin.net,     color: fin.net >= 0 ? "#00965C" : "#D14F4F",    icon: PiggyBank,    hint: "Received plus other income, minus expenses" },
   ];
+
+  const assignLabel: React.CSSProperties = {
+    display: "block", fontSize: 10, fontWeight: 600, color: "var(--foreground-muted)",
+    marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.05em",
+  };
 
   const thStyle = (right: boolean): React.CSSProperties => ({
     padding: "8px 12px", textAlign: right ? "right" : "left", fontSize: 10, fontWeight: 700,
@@ -217,6 +289,74 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
                     <tr style={{ background: "var(--surface)" }}>
                       <td colSpan={4} style={{ padding: "10px 12px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--foreground-muted)" }}>Total invoiced</td>
                       <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 800, fontFamily: "var(--font-heading)", fontSize: 13, color: "var(--accent)" }}>{formatCurrency(fin.billed, currency)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          {/* Team & Assignments */}
+          <div className="card">
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <h3 style={{ fontSize: 13, fontWeight: 600, fontFamily: "var(--font-heading)", display: "flex", alignItems: "center", gap: 6 }}>
+                <UserPlus size={14} style={{ color: "var(--accent)" }} /> Team &amp; Budgets
+                <span style={{ fontSize: 11, fontWeight: 500, color: "var(--foreground-muted)" }}>({engagements.length})</span>
+              </h3>
+              <button className="btn btn-ghost" style={{ fontSize: 11, padding: "4px 10px" }} onClick={() => setAssignOpen(true)}>
+                <UserPlus size={12} /> Assign Person
+              </button>
+            </div>
+            {engagements.length === 0 ? (
+              <p style={{ fontSize: 12, color: "var(--foreground-muted)", padding: "12px 0" }}>
+                Nobody assigned yet. Assign a team member and fix their budget for this project.
+              </p>
+            ) : (
+              <div style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-md)", overflow: "hidden" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ background: "var(--surface)", borderBottom: "1px solid var(--border)" }}>
+                      {["Member", "Status", "Budget", "Paid", "Due", ""].map((h, i) => (
+                        <th key={h || "act"} style={thStyle(i >= 2 && i <= 4)}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {engagements.map((e) => {
+                      const person = people.find((p) => p.$id === e.person_id);
+                      const paid = transactions
+                        .filter((t) => t.person_id === e.person_id && isOutflow(t))
+                        .reduce((sm, t) => sm + (t.amount || 0), 0);
+                      const due = Math.max(e.agreed_amount - paid, 0);
+                      const st = statusStyle(ENGAGEMENT_STATUS, e.status);
+                      return (
+                        <tr key={e.$id} style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+                          <td style={{ padding: "10px 12px" }}>
+                            <Link href={`/people/${e.person_id}`} style={{ fontSize: 12, fontWeight: 600, color: "var(--foreground)", textDecoration: "none" }}>
+                              {person?.name || "Unknown"}
+                            </Link>
+                            <p style={{ fontSize: 10, color: "var(--foreground-muted)" }}>{e.title}</p>
+                          </td>
+                          <td style={{ padding: "10px 12px" }}>
+                            <span style={{ display: "inline-block", padding: "2px 9px", borderRadius: 99, fontSize: 10.5, fontWeight: 600, background: st.bg, color: st.color, textTransform: "capitalize" }}>{e.status}</span>
+                          </td>
+                          <td style={{ padding: "10px 12px", textAlign: "right", color: "var(--foreground-2)" }}>{formatCurrency(e.agreed_amount, e.currency || currency)}</td>
+                          <td style={{ padding: "10px 12px", textAlign: "right", color: "#00965C", fontWeight: 600 }}>{formatCurrency(paid, currency)}</td>
+                          <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: due > 0 ? 700 : 400, color: due > 0 ? "#D14F4F" : "var(--foreground-muted)" }}>{formatCurrency(due, currency)}</td>
+                          <td style={{ padding: "10px 8px" }}>
+                            <button onClick={() => handleUnassign(e.$id, person?.name || "this member")} title="Remove from project" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--foreground-faint)", padding: 2 }}>
+                              <Trash2 size={12} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    <tr style={{ background: "var(--surface)" }}>
+                      <td colSpan={2} style={{ padding: "10px 12px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--foreground-muted)" }}>Team budget</td>
+                      <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 800, fontFamily: "var(--font-heading)", fontSize: 13, color: "var(--accent)" }}>{formatCurrency(teamBudget, currency)}</td>
+                      <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 800, fontFamily: "var(--font-heading)", fontSize: 13, color: "#00965C" }}>{formatCurrency(teamPaid, currency)}</td>
+                      <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 800, fontFamily: "var(--font-heading)", fontSize: 13, color: teamDue > 0 ? "#D14F4F" : "var(--foreground-muted)" }}>{formatCurrency(teamDue, currency)}</td>
+                      <td />
                     </tr>
                   </tbody>
                 </table>
@@ -349,6 +489,75 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
           </div>
         </div>
       </div>
+
+      {/* Assign person modal */}
+      {assignOpen && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)" }} onClick={() => setAssignOpen(false)} />
+          <form onSubmit={handleAssign} style={{ position: "relative", width: "100%", maxWidth: 440, background: "var(--background-alt)", borderRadius: "var(--radius-xl)", border: "1px solid var(--border)", padding: 24, boxShadow: "var(--shadow-xl)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+              <div>
+                <h2 style={{ fontSize: 15, fontWeight: 700, fontFamily: "var(--font-heading)" }}>Assign to Project</h2>
+                <p style={{ fontSize: 12, color: "var(--foreground-muted)" }}>Fix a budget for this person on {project.name}</p>
+              </div>
+              <button type="button" onClick={() => setAssignOpen(false)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--foreground-muted)" }}><X size={16} /></button>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div>
+                <label style={assignLabel}>Team Member *</label>
+                <select
+                  className="input-base"
+                  style={{ fontSize: 12 }}
+                  value={assignPersonId}
+                  onChange={(ev) => {
+                    const v = ev.target.value;
+                    setAssignPersonId(v);
+                    const chosen = people.find((p) => p.$id === v);
+                    if (chosen?.default_rate && !assignBudget) setAssignBudget(chosen.default_rate);
+                  }}
+                  required
+                >
+                  <option value="">Select a person...</option>
+                  {people
+                    .filter((p) => p.status === "active" && !engagements.some((e) => e.person_id === p.$id))
+                    .map((p) => (
+                      <option key={p.$id} value={p.$id}>{p.name}{p.role ? ` — ${p.role}` : ""}</option>
+                    ))}
+                </select>
+                <p style={{ fontSize: 10, color: "var(--foreground-faint)", marginTop: 4 }}>
+                  People already assigned to this project are hidden. Add new people under Team.
+                </p>
+              </div>
+              <div>
+                <label style={assignLabel}>Budget for this project *</label>
+                <input className="input-base" type="number" style={{ fontSize: 12 }} value={assignBudget || ""} onChange={(ev) => setAssignBudget(Number(ev.target.value))} placeholder="40000" required />
+                <p style={{ fontSize: 10, color: "var(--foreground-faint)", marginTop: 4 }}>
+                  Pre-filled from their default rate. This is what you commit to pay them for this project.
+                </p>
+              </div>
+              <div>
+                <label style={assignLabel}>Scope / Note</label>
+                <input className="input-base" style={{ fontSize: 12 }} value={assignTitle} onChange={(ev) => setAssignTitle(ev.target.value)} placeholder="Frontend build — leave blank to auto-fill" />
+              </div>
+            </div>
+
+            {assignError && (
+              <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#D14F4F", background: "#FEF2F2", border: "1px solid #FAC5C5", padding: "8px 12px", borderRadius: "var(--radius-md)" }}>
+                <AlertCircle size={13} /> {assignError}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+              <button type="button" onClick={() => setAssignOpen(false)} className="btn btn-ghost" style={{ flex: 1, fontSize: 12 }}>Cancel</button>
+              <button type="submit" className="btn btn-primary" style={{ flex: 2, justifyContent: "center", fontSize: 12 }} disabled={assigning}>
+                {assigning ? <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> : <UserPlus size={13} />}
+                {assigning ? "Assigning..." : "Assign & Set Budget"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );

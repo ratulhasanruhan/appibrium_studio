@@ -8,6 +8,10 @@ import { getTransactions, createTransaction } from "@/services/transactions";
 import { getClients } from "@/services/crm";
 import { getProjects } from "@/services/projects";
 import { getPeople } from "@/services/people";
+import { getEngagements } from "@/services/engagements";
+import { sendPayoutNotification } from "@/services/email";
+import { sendPayoutSMS } from "@/services/sms";
+import { calcPersonFinancials } from "@/lib/finance";
 
 const TYPE_COLORS: Record<string, string> = {
   income: "#00965C",
@@ -30,6 +34,8 @@ export function TransactionsList() {
   const [saving, setSaving]       = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saved" | "error">("idle");
   const [saveError, setSaveError] = useState("");
+  const [notifyPerson, setNotifyPerson] = useState(true);
+  const [notifyResult, setNotifyResult] = useState("");
 
   // Form Fields
   const [type, setType]           = useState<Transaction["type"]>("income");
@@ -101,6 +107,7 @@ export function TransactionsList() {
     setSaving(false);
     if (result.success) {
       setSaveStatus("saved");
+      if (personId && notifyPerson) await notifyPayee();
       setTimeout(() => {
         setShowModal(false);
         setSaveStatus("idle");
@@ -111,6 +118,49 @@ export function TransactionsList() {
       setSaveError(result.error || "Failed to log transaction.");
       setSaveStatus("error");
     }
+  }
+
+  /**
+   * Confirms a payout to the person by email and SMS. Best-effort: a failed
+   * notification must never invalidate a transaction that is already recorded.
+   */
+  async function notifyPayee() {
+    const person = people.find((p) => p.$id === personId);
+    if (!person) return;
+
+    const amountText = formatCurrency(amount, "BDT");
+    const reference = description || "services rendered";
+    const projectName = projects.find((p) => p.$id === projectId)?.name;
+    const channels: string[] = [];
+
+    try {
+      const [engagements, payouts] = await Promise.all([
+        getEngagements({ personId: person.$id }),
+        getTransactions({ personId: person.$id }),
+      ]);
+      const due = calcPersonFinancials(engagements, payouts).due;
+
+      if (person.email) {
+        const res = await sendPayoutNotification(
+          person.email, person.name, amountText, reference,
+          formatDate(tDate), projectName, formatCurrency(due, "BDT")
+        );
+        if (res.success) channels.push("email");
+      }
+      if (person.phone) {
+        const res = await sendPayoutSMS(person.phone, person.name, amountText, reference);
+        if (res.success) channels.push("SMS");
+      }
+      setNotifyResult(
+        channels.length
+          ? `Notified ${person.name} by ${channels.join(" and ")}.`
+          : `Could not notify ${person.name} — no email or phone on record.`
+      );
+    } catch (err) {
+      console.error("[Transactions] payout notification failed:", err);
+      setNotifyResult("Transaction saved, but the notification could not be sent.");
+    }
+    setTimeout(() => setNotifyResult(""), 6000);
   }
 
   const labelStyle: React.CSSProperties = {
@@ -146,6 +196,12 @@ export function TransactionsList() {
           </div>
         ))}
       </div>
+
+      {notifyResult && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, padding: "9px 14px", background: "#E6FAF3", border: "1px solid #B3E8D2", borderRadius: "var(--radius-md)", fontSize: 12, color: "#00965C" }}>
+          <Check size={14} /> {notifyResult}
+        </div>
+      )}
 
       {/* Toolbar */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
@@ -347,6 +403,18 @@ export function TransactionsList() {
                   </select>
                 </div>
               </div>
+
+              {personId && (
+                <label style={{ display: "flex", gap: 9, alignItems: "flex-start", cursor: "pointer", padding: "10px 12px", background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)" }}>
+                  <input type="checkbox" checked={notifyPerson} onChange={(e) => setNotifyPerson(e.target.checked)} style={{ marginTop: 2, accentColor: "var(--accent)" }} />
+                  <span>
+                    <span style={{ display: "block", fontSize: 12, fontWeight: 600, color: "var(--foreground)" }}>Notify the payee</span>
+                    <span style={{ display: "block", fontSize: 10.5, color: "var(--foreground-muted)", lineHeight: 1.45 }}>
+                      Sends a payment confirmation by email and SMS, including their remaining balance.
+                    </span>
+                  </span>
+                </label>
+              )}
 
               {saveStatus === "error" && (
                 <div style={{ padding: "8px 12px", borderRadius: "var(--radius-md)", background: "#FEF2F2", border: "1px solid #FAC5C5", fontSize: 12, color: "#D14F4F", display: "flex", alignItems: "center", gap: 6 }}>
