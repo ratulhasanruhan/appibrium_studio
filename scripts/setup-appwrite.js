@@ -301,16 +301,18 @@ async function run() {
   // 2. Create Collections & Attributes
   for (const [collId, attrs] of Object.entries(SCHEMA)) {
     console.log(`\n📦 Checking Collection "${collId}"...`);
-    // Signed-in users only. Anonymous visitors reach their invoice, proposal,
-    // letter or team report through the token-gated /api/public routes, which
-    // run server-side with the admin key — the browser never queries Appwrite
-    // directly, so nothing here needs to be world-readable.
-    const permissions = [
-      Permission.read(Role.users()),
-      Permission.create(Role.users()),
-      Permission.update(Role.users()),
-      Permission.delete(Role.users())
-    ];
+    // Staff only. Two other audiences reach data without touching Appwrite
+    // directly: anonymous recipients via the token-gated /api/public routes,
+    // and signed-in clients via /api/portal, which scopes every query to the
+    // caller's own client record. Role.users() would be too broad here — a
+    // client with a magic-link account would otherwise read the whole database.
+    const STAFF_ROLES = ["owner", "admin", "administrator", "manager", "finance"];
+    const permissions = STAFF_ROLES.flatMap((role) => [
+      Permission.read(Role.label(role)),
+      Permission.create(Role.label(role)),
+      Permission.update(Role.label(role)),
+      Permission.delete(Role.label(role))
+    ]);
     try {
       await databases.getCollection(dbId, collId);
       console.log(`Collection "${collId}" already exists. Updating permissions...`);

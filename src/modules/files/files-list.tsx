@@ -6,6 +6,7 @@ import type { FileMetadata, Client } from "@/types";
 import { formatDate, formatFileSize, hasAdminRole } from "@/utils";
 import { getFilesMetadata, uploadFile, deleteFile, getFileDownloadUrl } from "@/services/files";
 import { getClients } from "@/services/crm";
+import { getPortalData } from "@/services/portal";
 import { account } from "@/lib/appwrite/client";
 
 export function FilesList() {
@@ -26,27 +27,26 @@ export function FilesList() {
   async function loadData() {
     setLoading(true);
     try {
-      const [fList, cliList] = await Promise.all([getFilesMetadata(), getClients()]);
-      setFiles(fList);
-      setClients(cliList);
+      // Resolve the role first — clients may not query Appwrite directly.
+      const user = await account.get();
+      setCurrentUser(user);
+      const admin = hasAdminRole(user.labels || []);
+      setIsAdmin(admin);
 
-      // Check user role & resolve client ID
-      try {
-        const user = await account.get();
-        setCurrentUser(user);
-        const labels = user.labels || [];
-        const admin = hasAdminRole(labels);
-        setIsAdmin(admin);
-
-        if (!admin) {
-          const matchingClient = cliList.find(c => c.email?.toLowerCase() === user.email?.toLowerCase());
-          if (matchingClient) {
-            setMyClientId(matchingClient.$id);
-            setClientId(matchingClient.$id);
-          }
+      if (admin) {
+        const [fList, cliList] = await Promise.all([getFilesMetadata(), getClients()]);
+        setFiles(fList);
+        setClients(cliList);
+      } else {
+        const portal = await getPortalData();
+        setFiles(portal.files);
+        if (portal.client) {
+          setClients([portal.client]);
+          setMyClientId(portal.client.$id);
+          setClientId(portal.client.$id);
+        } else {
+          setClients([]);
         }
-      } catch (userErr) {
-        console.error("Failed to load account session in files list:", userErr);
       }
     } catch (err) {
       console.error("[FilesList] load error:", err);

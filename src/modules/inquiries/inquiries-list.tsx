@@ -9,6 +9,7 @@ import { getInquiries, updateInquiryStatus, deleteInquiry, createInquiry } from 
 import { createProposal } from "@/services/proposals";
 import { getClients } from "@/services/crm";
 import { createNotification } from "@/services/notifications";
+import { getPortalData } from "@/services/portal";
 import { account, databases, DB_ID, COLLECTIONS, Query } from "@/lib/appwrite/client";
 import { sendProposalNotification } from "@/services/email";
 
@@ -52,11 +53,9 @@ export function InquiriesList() {
       let clients: Client[] = [];
 
       if (!admin) {
-        // Logged-in customer gets their matching client ID
-        const clientRes = await databases.listDocuments(DB_ID, COLLECTIONS.CLIENTS, [
-          Query.equal("email", user.email),
-          Query.limit(1)
-        ]);
+        // Clients cannot read the clients collection directly.
+        const portal = await getPortalData();
+        const clientRes = { documents: portal.client ? [portal.client] : [] };
         if (clientRes.documents.length > 0) {
           const matchedClient = clientRes.documents[0] as unknown as Client;
           setClientDbId(matchedClient.$id);

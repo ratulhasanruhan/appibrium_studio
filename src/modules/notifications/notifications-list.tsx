@@ -5,6 +5,7 @@ import { Bell, Eye, EyeOff, Check, Loader2, ArrowRight, Plus, X, AlertCircle } f
 import type { Notification, Client } from "@/types";
 import { formatRelativeTime, hasAdminRole } from "@/utils";
 import { getNotifications, markNotificationAsRead, createNotification } from "@/services/notifications";
+import { getPortalData } from "@/services/portal";
 import { getClients } from "@/services/crm";
 import { sendCustomNotificationEmail } from "@/services/email";
 import { sendCustomSMS } from "@/services/sms";
@@ -34,8 +35,13 @@ export function NotificationsList() {
   async function loadData() {
     setLoading(true);
     try {
-      const data = await getNotifications();
-      setNotifications(data);
+      const user = await account.get();
+      if (hasAdminRole(user.labels || [])) {
+        setNotifications(await getNotifications());
+      } else {
+        const portal = await getPortalData();
+        setNotifications(portal.notifications);
+      }
     } catch (err) {
       console.error("[NotificationsList] load error:", err);
     } finally {

@@ -7,6 +7,7 @@ import { formatRelativeTime, hasAdminRole } from "@/utils";
 import Link from "next/link";
 import { getProposals, deleteProposal } from "@/services/proposals";
 import { getClients } from "@/services/crm";
+import { getPortalData } from "@/services/portal";
 import { account, databases, DB_ID, COLLECTIONS, Query } from "@/lib/appwrite/client";
 
 type ProposalWithClient = Proposal & { client_name: string };
@@ -49,14 +50,10 @@ export function ProposalsList() {
         let clients: Client[] = [];
 
         if (!admin) {
-          const clientRes = await databases.listDocuments(DB_ID, COLLECTIONS.CLIENTS, [
-            Query.equal("email", user.email),
-            Query.limit(1)
-          ]);
-          if (clientRes.documents.length > 0) {
-            const clientDbId = clientRes.documents[0].$id;
-            rawProposals = await getProposals(clientDbId);
-            clients = [clientRes.documents[0] as unknown as Client];
+          const portal = await getPortalData();
+          if (portal.client) {
+            rawProposals = portal.proposals;
+            clients = [portal.client];
           }
         } else {
           const [allProps, allClis] = await Promise.all([

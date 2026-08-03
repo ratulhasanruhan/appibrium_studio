@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { databases, DB_ID, COLLECTIONS } from "@/lib/appwrite/client";
+import { updateOwnClientProfile } from "@/services/portal";
 import { Loader2, Check, AlertCircle, Sparkles } from "lucide-react";
 import type { Client } from "@/types";
 
@@ -32,21 +32,23 @@ export function ProfileCompleteModal({ client, onUpdate, onClose }: ProfileCompl
     setError("");
 
     try {
-      const res = await databases.updateDocument(
-        DB_ID,
-        COLLECTIONS.CLIENTS,
-        client.$id,
-        {
-          name: name.trim(),
-          legal_name: legalName.trim(),
-          phone: phone.trim(),
-          website: website.trim(),
-          address: address.trim(),
-        }
-      );
+      // Clients update their own record through the portal API, which only
+      // accepts these fields and only for the signed-in caller.
+      const res = await updateOwnClientProfile({
+        name: name.trim(),
+        legal_name: legalName.trim(),
+        phone: phone.trim(),
+        website: website.trim(),
+        address: address.trim(),
+      });
+      if (!res.success || !res.client) {
+        setError(res.error || "Failed to update profile details.");
+        setLoading(false);
+        return;
+      }
       setSuccess(true);
       setTimeout(() => {
-        onUpdate(res as unknown as Client);
+        onUpdate(res.client as Client);
       }, 1000);
     } catch (err: any) {
       setError(err.message || "Failed to update profile details.");

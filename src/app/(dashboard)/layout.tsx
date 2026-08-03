@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { account, databases, DB_ID, COLLECTIONS, Query } from "@/lib/appwrite/client";
+import { account } from "@/lib/appwrite/client";
+import { getPortalData } from "@/services/portal";
 import { Sidebar } from "@/components/sidebar";
 import { ProfileCompleteModal } from "@/components/profile-complete-modal";
 import { hasAdminRole } from "@/utils";
@@ -25,14 +26,11 @@ export default function DashboardLayout({
           const isAdmin = hasAdminRole(labels);
 
           if (!isAdmin) {
-            // Check if client document exists with their email
-            const clientsList = await databases.listDocuments(DB_ID, COLLECTIONS.CLIENTS, [
-              Query.equal("email", user.email.trim().toLowerCase()),
-              Query.limit(1)
-            ]);
-
-            if (clientsList.documents.length > 0) {
-              const doc = clientsList.documents[0];
+            // Clients cannot read the clients collection; the portal API
+            // returns only their own record.
+            const portal = await getPortalData();
+            if (portal.client) {
+              const doc = portal.client;
               setClientDoc(doc);
 
               const hasSkipped = sessionStorage.getItem("hasSkippedProfileComplete");

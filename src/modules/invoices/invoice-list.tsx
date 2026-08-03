@@ -8,6 +8,7 @@ import { effectiveInvoiceStatus, isOverdue } from "@/lib/finance";
 import Link from "next/link";
 import { getInvoices, deleteInvoice } from "@/services/invoices";
 import { getClients } from "@/services/crm";
+import { getPortalData } from "@/services/portal";
 import { sendInvoiceSMS } from "@/services/sms";
 import { account, databases, DB_ID, COLLECTIONS, Query } from "@/lib/appwrite/client";
 
@@ -44,14 +45,10 @@ export function InvoiceList() {
         let clients: Client[] = [];
 
         if (!admin) {
-          const clientRes = await databases.listDocuments(DB_ID, COLLECTIONS.CLIENTS, [
-            Query.equal("email", user.email),
-            Query.limit(1)
-          ]);
-          if (clientRes.documents.length > 0) {
-            const clientDbId = clientRes.documents[0].$id;
-            rawInvoices = await getInvoices(clientDbId);
-            clients = [clientRes.documents[0] as unknown as Client];
+          const portal = await getPortalData();
+          if (portal.client) {
+            rawInvoices = portal.invoices;
+            clients = [portal.client];
           }
         } else {
           const [allInvs, allClis] = await Promise.all([getInvoices(), getClients()]);

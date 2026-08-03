@@ -6,6 +6,7 @@ import type { Project, Client, Invoice } from "@/types";
 import { formatDate, formatCurrency, hasAdminRole } from "@/utils";
 import { getProjects, createProject, updateProject, deleteProject } from "@/services/projects";
 import { getClients } from "@/services/crm";
+import { getPortalData } from "@/services/portal";
 import { sendProjectNotification } from "@/services/email";
 import Link from "next/link";
 import { account, databases, DB_ID, COLLECTIONS, Query } from "@/lib/appwrite/client";
@@ -67,27 +68,28 @@ export function ProjectsList() {
 
       let projList: Project[] = [];
       let cliList: Client[] = [];
+      let invoices: Invoice[] = [];
 
       // Query database for items
       if (!admin) {
-        const clientRes = await databases.listDocuments(DB_ID, COLLECTIONS.CLIENTS, [
-          Query.equal("email", user.email),
-          Query.limit(1)
-        ]);
-        if (clientRes.documents.length > 0) {
-          const clientDbId = clientRes.documents[0].$id;
-          projList = await getProjects(clientDbId);
-          cliList = [clientRes.documents[0] as unknown as Client];
+        // Clients cannot query Appwrite directly; the portal API returns only
+        // the records belonging to them.
+        const portal = await getPortalData();
+        if (portal.client) {
+          projList = portal.projects;
+          cliList = [portal.client];
+          invoices = portal.invoices;
         }
       } else {
-        const [allProjs, allClis] = await Promise.all([getProjects(), getClients()]);
+        const [allProjs, allClis, invRes] = await Promise.all([
+          getProjects(),
+          getClients(),
+          databases.listDocuments(DB_ID, COLLECTIONS.INVOICES, [Query.limit(100)]),
+        ]);
         projList = allProjs;
         cliList = allClis;
+        invoices = invRes.documents as unknown as Invoice[];
       }
-
-      // Query all invoices to compute paid/due summaries
-      const invoicesRes = await databases.listDocuments(DB_ID, COLLECTIONS.INVOICES, [Query.limit(100)]);
-      const invoices = invoicesRes.documents as unknown as Invoice[];
       
       const invoiceGroup = new Map<string, Invoice[]>();
       invoices.forEach((inv) => {
