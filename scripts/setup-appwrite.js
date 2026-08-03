@@ -301,11 +301,15 @@ async function run() {
   // 2. Create Collections & Attributes
   for (const [collId, attrs] of Object.entries(SCHEMA)) {
     console.log(`\n📦 Checking Collection "${collId}"...`);
+    // Signed-in users only. Anonymous visitors reach their invoice, proposal,
+    // letter or team report through the token-gated /api/public routes, which
+    // run server-side with the admin key — the browser never queries Appwrite
+    // directly, so nothing here needs to be world-readable.
     const permissions = [
-      Permission.read(Role.any()),
-      Permission.create(Role.any()),
-      Permission.update(Role.any()),
-      Permission.delete(Role.any())
+      Permission.read(Role.users()),
+      Permission.create(Role.users()),
+      Permission.update(Role.users()),
+      Permission.delete(Role.users())
     ];
     try {
       await databases.getCollection(dbId, collId);

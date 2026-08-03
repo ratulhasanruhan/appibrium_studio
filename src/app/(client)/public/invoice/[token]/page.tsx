@@ -2,13 +2,10 @@
 
 import React, { useState, useEffect } from "react";
 import { ShieldAlert, Loader2, Printer, Check, Copy } from "lucide-react";
-import { getInvoiceByToken, getInvoiceItems } from "@/services/invoices";
-import { getClient } from "@/services/crm";
 import type { Invoice, Client, InvoiceItem } from "@/types";
 import { formatDate, formatCurrency, documentRef } from "@/utils";
 import { effectiveInvoiceStatus } from "@/lib/finance";
 import { useParams } from "next/navigation";
-import { getBankDetails } from "@/services/settings";
 
 export default function PublicInvoicePortal() {
   const params = useParams();
@@ -32,17 +29,13 @@ export default function PublicInvoicePortal() {
     async function load() {
       if (!token) return;
       setLoading(true);
-      const inv = await getInvoiceByToken(token);
-      if (inv) {
-        setInvoice(inv);
-        const [cl, lineItems, bank] = await Promise.all([
-          getClient(inv.client_id),
-          getInvoiceItems(inv.$id),
-          getBankDetails(),
-        ]);
-        setClient(cl);
-        setItems(lineItems);
-        setBankDetails(bank);
+      const res = await fetch(`/api/public?type=invoice&token=${encodeURIComponent(token)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setInvoice(data.invoice);
+        setClient(data.client);
+        setItems(data.items || []);
+        setBankDetails(data.bank);
       }
       setLoading(false);
     }

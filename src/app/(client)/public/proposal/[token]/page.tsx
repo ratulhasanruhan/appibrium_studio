@@ -2,9 +2,6 @@
 
 import React, { useState, useEffect, Suspense } from "react";
 import { Download, Check, X, ShieldAlert, Loader2, Printer, Lock, Mail, AlertCircle, CheckCircle2 } from "lucide-react";
-import { getProposalByToken, updateProposal } from "@/services/proposals";
-import { getClient } from "@/services/crm";
-import { createProject } from "@/services/projects";
 import type { Proposal, Client } from "@/types";
 import { formatDate, documentRef } from "@/utils";
 import { useParams, useSearchParams } from "next/navigation";
@@ -67,12 +64,12 @@ function PublicProposalPortalContent() {
     async function load() {
       if (!token) return;
       setLoading(true);
-      const p = await getProposalByToken(token);
-      if (p) {
-        setProposal(p);
-        setStatus(p.status as any);
-        const cl = await getClient(p.client_id);
-        setClient(cl);
+      const res = await fetch(`/api/public?type=proposal&token=${encodeURIComponent(token)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setProposal(data.proposal);
+        setStatus(data.proposal.status as any);
+        setClient(data.client);
       }
       setLoading(false);
     }
@@ -82,25 +79,11 @@ function PublicProposalPortalContent() {
   async function handleAccept() {
     if (!proposal) return;
     setSigning(true);
-    const result = await updateProposal(proposal.$id, {
-      status: "accepted",
-      accepted_at: new Date().toISOString(),
+    const res = await fetch("/api/public", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "proposal", token, action: "accept" }),
     });
-    if (result.success) {
-      setStatus("accepted");
-      try {
-        // Automatically create corresponding active project
-        await createProject({
-          name: proposal.title,
-          client_id: proposal.client_id,
-          description: `Project initialized automatically from accepted proposal "${proposal.title}".`,
-          status: "active",
-          currency: proposal.currency || "BDT",
-        });
-      } catch (err) {
-        console.error("Failed to automatically create project:", err);
-      }
-    }
+    if (res.ok) setStatus("accepted");
     setSigning(false);
   }
 
@@ -109,7 +92,8 @@ function PublicProposalPortalContent() {
     const reason = window.prompt("Please enter the reason for declining (optional):");
     if (reason === null) return;
     setSigning(true);
-    await updateProposal(proposal.$id, { status: "rejected" });
+    await fetch("/api/public", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "proposal", token, action: "reject" }) });
     setStatus("rejected");
     setSigning(false);
   }

@@ -2,11 +2,10 @@
 
 import React, { useState, useEffect, Suspense } from "react";
 import { ShieldAlert, Loader2, Printer, Check, Lock, Mail, AlertCircle, CheckCircle2, X } from "lucide-react";
-import { getLetterByToken, updateLetter } from "@/services/letters";
-import { getClient } from "@/services/crm";
 import type { Letter, Client } from "@/types";
 import { formatDate } from "@/utils";
-import { getCompanyDetails, type CompanyDetails } from "@/services/settings";
+import { COMPANY } from "@/lib/company-profile";
+type CompanyDetails = { name: string; address: string; email: string; phone: string; website: string; logo_url: string };
 import { useParams, useSearchParams } from "next/navigation";
 import { account } from "@/lib/appwrite/client";
 
@@ -58,14 +57,23 @@ function PublicLetterContent() {
     async function load() {
       if (!token) return;
       setLoading(true);
-      const [l, co] = await Promise.all([getLetterByToken(token), getCompanyDetails()]);
-      setCompany(co);
-      if (l) {
-        setLetter(l);
-        setStatus(l.status);
-        if (l.client_id) setClient(await getClient(l.client_id));
-        if (l.status === "sent") {
-          updateLetter(l.$id, { status: "viewed", viewed_at: new Date().toISOString() }).catch(() => {});
+      const res = await fetch(`/api/public?type=letter&token=${encodeURIComponent(token)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setLetter(data.letter);
+        setStatus(data.letter.status);
+        setClient(data.client);
+        setCompany({
+          name: data.company?.name || COMPANY.name,
+          address: data.company?.address || COMPANY.address,
+          email: data.company?.email || COMPANY.email,
+          phone: data.company?.phone || "",
+          website: data.company?.website || COMPANY.website,
+          logo_url: data.company?.logo_url || "",
+        });
+        if (data.letter.status === "sent") {
+          fetch("/api/public", { method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ type: "letter", token, action: "view" }) }).catch(() => {});
         }
       }
       setLoading(false);
@@ -78,21 +86,21 @@ function PublicLetterContent() {
   async function handleSign() {
     if (!letter) return;
     setSigning(true);
-    const res = await updateLetter(letter.$id, {
-      status: "signed",
-      signed_at: new Date().toISOString(),
-      signed_by_name: currentUser?.name || client?.name || "",
+    const res = await fetch("/api/public", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "letter", token, action: "sign", name: currentUser?.name || client?.name || "" }),
     });
     setSigning(false);
-    if (res.success) setStatus("signed");
-    else alert("Could not record signature: " + res.error);
+    if (res.ok) setStatus("signed");
+    else alert("Could not record signature.");
   }
 
   async function handleDecline() {
     if (!letter) return;
     if (!confirm("Decline this document? This cannot be undone.")) return;
     setSigning(true);
-    await updateLetter(letter.$id, { status: "declined" });
+    await fetch("/api/public", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type: "letter", token, action: "decline" }) });
     setSigning(false);
     setStatus("declined");
   }

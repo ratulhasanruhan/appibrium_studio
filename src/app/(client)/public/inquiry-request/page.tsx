@@ -68,35 +68,17 @@ export default function InquiryRequestPage() {
         <p>This draft proposal has been auto-generated from the client inquiry submission. The Appibrium engineering team will refine this document, add technical architecture specs, and send the finalized proposal back to the client.</p>
       `;
 
-      await databases.createDocument(
-        DB_ID,
-        COLLECTIONS.PROPOSALS,
-        ID.unique(),
-        {
-          client_id: clientId,
+      await fetch("/api/public/inquiry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clientId,
           title: projectTitle || `${companyName} Project Scope`,
-          status: "draft",
-          content_html: draftContent.trim(),
-          public_token: publicToken,
-          version: 1,
-          currency: "BDT",
-        }
-      );
-
-      // 4. Create internal notification for Admin
-      await databases.createDocument(
-        DB_ID,
-        COLLECTIONS.NOTIFICATIONS,
-        ID.unique(),
-        {
-          user_id: "admin",
-          title: "New Inquiry Received",
-          message: `${companyName} has submitted an inquiry for "${projectTitle}". A draft proposal has been generated.`,
-          type: "project_updated",
-          is_read: false,
-          link: `/inquiries`,
-        }
-      );
+          contentHtml: draftContent,
+          publicToken,
+          companyName,
+        }),
+      });
 
       // 5. Trigger magic URL token client-side if this is a new client
       if (isNew) {

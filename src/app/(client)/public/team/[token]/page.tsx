@@ -3,12 +3,9 @@
 import React, { useState, useEffect } from "react";
 import { ShieldAlert, Loader2, Printer, Briefcase, Wallet, TrendingUp } from "lucide-react";
 import { useParams } from "next/navigation";
-import { getPersonByToken } from "@/services/people";
-import { getEngagements } from "@/services/engagements";
-import { getTransactions } from "@/services/transactions";
-import { getProjects } from "@/services/projects";
 import { calcPersonFinancials, isOutflow } from "@/lib/finance";
-import { getCompanyDetails, type CompanyDetails } from "@/services/settings";
+import { COMPANY } from "@/lib/company-profile";
+type CompanyDetails = { name: string; address: string; email: string; phone: string; website: string; logo_url: string };
 import { formatDate, formatCurrency } from "@/utils";
 import type { Person, Engagement, Transaction, Project } from "@/types";
 
@@ -26,20 +23,22 @@ export default function TeamReportPage() {
   useEffect(() => {
     let cancelled = false;
     async function load() {
-      const [p, co] = await Promise.all([getPersonByToken(token), getCompanyDetails()]);
+      const res = await fetch(`/api/public?type=team&token=${encodeURIComponent(token)}`);
       if (cancelled) return;
-      setCompany(co);
-      if (p) {
-        setPerson(p);
-        const [es, txs, projs] = await Promise.all([
-          getEngagements({ personId: p.$id }),
-          getTransactions({ personId: p.$id }),
-          getProjects(),
-        ]);
-        if (cancelled) return;
-        setEngagements(es);
-        setPayouts(txs);
-        setProjects(projs);
+      if (res.ok) {
+        const data = await res.json();
+        setPerson(data.person);
+        setEngagements(data.engagements || []);
+        setPayouts(data.payouts || []);
+        setProjects(data.projects || []);
+        setCompany({
+          name: data.company?.name || COMPANY.name,
+          address: data.company?.address || COMPANY.address,
+          email: data.company?.email || COMPANY.email,
+          phone: data.company?.phone || "",
+          website: data.company?.website || COMPANY.website,
+          logo_url: data.company?.logo_url || "",
+        });
       }
       setLoading(false);
     }
