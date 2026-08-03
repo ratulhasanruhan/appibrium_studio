@@ -8,7 +8,7 @@ import { getEngagements } from "@/services/engagements";
 import { getTransactions } from "@/services/transactions";
 import { calcPersonFinancials, totalPayable } from "@/lib/finance";
 import { PERSON_STATUS, statusStyle } from "@/lib/status";
-import { formatCurrency } from "@/utils";
+import { formatCurrency, randomToken } from "@/utils";
 import type { Person, Engagement, Transaction } from "@/types";
 
 const labelStyle: React.CSSProperties = {
@@ -33,8 +33,7 @@ export function PeopleList() {
   const [phone, setPhone] = useState("");
   const [role, setRole] = useState("");
   const [type, setType] = useState<Person["type"]>("contractor");
-  const [rateType, setRateType] = useState<Person["rate_type"]>("fixed");
-  const [defaultRate, setDefaultRate] = useState(0);
+  const [portfolio, setPortfolio] = useState("");
   const [payoutMethod, setPayoutMethod] = useState<Person["payout_method"]>("bkash");
   const [payoutDetails, setPayoutDetails] = useState("");
 
@@ -63,9 +62,9 @@ export function PeopleList() {
       role: role.trim() || undefined,
       type,
       status: "active",
-      rate_type: rateType,
-      default_rate: defaultRate || undefined,
       currency: "BDT",
+      portfolio_url: portfolio.trim() || undefined,
+      public_token: randomToken("tm"),
       payout_method: payoutMethod,
       payout_details: payoutDetails.trim() || undefined,
       joined_date: new Date().toISOString().slice(0, 10),
@@ -73,7 +72,7 @@ export function PeopleList() {
     setSaving(false);
     if (res.success) {
       setShowModal(false);
-      setName(""); setEmail(""); setPhone(""); setRole(""); setDefaultRate(0); setPayoutDetails("");
+      setName(""); setEmail(""); setPhone(""); setRole(""); setPortfolio(""); setPayoutDetails("");
       load();
     } else {
       setError(res.error || "Failed to add person.");
@@ -142,13 +141,13 @@ export function PeopleList() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>Person</th><th>Type</th><th>Agreed</th><th>Paid</th><th>Due</th><th>Status</th><th style={{ width: 50 }} />
+                <th>Person</th><th>Role</th><th>Type</th><th>Assigned</th><th>Paid</th><th>Due</th><th>Status</th><th style={{ width: 50 }} />
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: "center", padding: "60px 20px" }}>
+                  <td colSpan={8} style={{ textAlign: "center", padding: "60px 20px" }}>
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
                       <Users size={32} style={{ color: "var(--foreground-faint)" }} />
                       <p style={{ color: "var(--foreground-muted)", fontSize: 13, fontWeight: 500 }}>
@@ -167,8 +166,9 @@ export function PeopleList() {
                   <tr key={p.$id}>
                     <td>
                       <p style={{ fontSize: 13, fontWeight: 600, color: "var(--foreground)", fontFamily: "var(--font-heading)" }}>{p.name}</p>
-                      {p.role && <p style={{ fontSize: 11, color: "var(--foreground-muted)" }}>{p.role}</p>}
+                      {p.email && <p style={{ fontSize: 11, color: "var(--foreground-muted)" }}>{p.email}</p>}
                     </td>
+                    <td><span style={{ fontSize: 12, color: "var(--foreground-2)" }}>{p.role || "—"}</span></td>
                     <td><span style={{ fontSize: 12, color: "var(--foreground-2)", textTransform: "capitalize" }}>{p.type}</span></td>
                     <td><span style={{ fontSize: 12, color: "var(--foreground-2)" }}>{formatCurrency(fin.agreed, p.currency)}</span></td>
                     <td><span style={{ fontSize: 12, color: "#00965C", fontWeight: 600 }}>{formatCurrency(fin.paid, p.currency)}</span></td>
@@ -227,17 +227,9 @@ export function PeopleList() {
                 <label style={labelStyle}>Phone</label>
                 <input className="input-base" style={{ fontSize: 12 }} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+8801..." />
               </div>
-              <div>
-                <label style={labelStyle}>Rate Basis</label>
-                <select className="input-base" style={{ fontSize: 12 }} value={rateType} onChange={(e) => setRateType(e.target.value as Person["rate_type"])}>
-                  <option value="fixed">Fixed per project</option>
-                  <option value="monthly">Monthly</option>
-                  <option value="hourly">Hourly</option>
-                </select>
-              </div>
-              <div>
-                <label style={labelStyle}>Default Rate (BDT)</label>
-                <input className="input-base" type="number" style={{ fontSize: 12 }} value={defaultRate || ""} onChange={(e) => setDefaultRate(Number(e.target.value))} placeholder="45000" />
+              <div style={{ gridColumn: "1/-1" }}>
+                <label style={labelStyle}>Portfolio / Profile Link (Optional)</label>
+                <input className="input-base" style={{ fontSize: 12 }} value={portfolio} onChange={(e) => setPortfolio(e.target.value)} placeholder="https://dribbble.com/username" />
               </div>
               <div>
                 <label style={labelStyle}>Payout Method</label>

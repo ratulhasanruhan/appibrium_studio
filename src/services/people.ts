@@ -13,6 +13,19 @@ export async function getPeople(status?: Person["status"]): Promise<Person[]> {
   }
 }
 
+export async function getPersonByToken(token: string): Promise<Person | null> {
+  try {
+    const res = await databases.listDocuments(DB_ID, COLLECTIONS.PEOPLE, [
+      Query.equal("public_token", token),
+      Query.limit(1),
+    ]);
+    return (res.documents[0] as unknown as Person) ?? null;
+  } catch (error) {
+    console.error("[People] getPersonByToken error:", error);
+    return null;
+  }
+}
+
 export async function getPerson(id: string): Promise<Person | null> {
   try {
     const res = await databases.getDocument(DB_ID, COLLECTIONS.PEOPLE, id);

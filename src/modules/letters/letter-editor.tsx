@@ -6,6 +6,7 @@ import { getClients } from "@/services/crm";
 import { createLetter, getLetter, updateLetter, nextReference } from "@/services/letters";
 import { SIGNATORIES } from "@/lib/company-profile";
 import type { Client, Letter } from "@/types";
+import { randomToken } from "@/utils";
 import {
   LETTER_TEMPLATES,
   buildLetterBody,
@@ -15,10 +16,6 @@ import {
 
 interface LetterEditorProps {
   id?: string;
-}
-
-function makePublicToken(): string {
-  return "ltr_" + Math.random().toString(36).substring(2, 12);
 }
 
 const labelStyle: React.CSSProperties = {
@@ -137,7 +134,7 @@ export function LetterEditor({ id }: LetterEditorProps) {
       ...payload,
       reference,
       status: "draft",
-      public_token: makePublicToken(),
+      public_token: randomToken("ltr"),
     } as Omit<Letter, "$id" | "$createdAt" | "$updatedAt">);
     setSaving(false);
     if (res.success && res.data) {

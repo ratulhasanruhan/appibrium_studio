@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import {
   ArrowLeft, Loader2, AlertCircle, Plus, X, Briefcase,
-  Wallet, TrendingUp, PiggyBank, Trash2,
+  Wallet, TrendingUp, PiggyBank, Trash2, Link as LinkIcon, FileText, Copy, Check,
 } from "lucide-react";
 import Link from "next/link";
 import { getPerson, updatePerson } from "@/services/people";
@@ -44,6 +44,7 @@ export function PersonDetail({ id }: PersonDetailProps) {
   const [rateType, setRateType] = useState<Engagement["rate_type"]>("fixed");
   const [amount, setAmount] = useState(0);
   const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
+  const [copied, setCopied] = useState(false);
 
   /** Single loader used by both the initial effect and post-mutation refreshes. */
   async function load(signal?: { cancelled: boolean }) {
@@ -130,6 +131,16 @@ export function PersonDetail({ id }: PersonDetailProps) {
 
   const currency = person.currency || "BDT";
   const fin = calcPersonFinancials(engagements, payouts);
+  const reportUrl = typeof window !== "undefined"
+    ? `${window.location.origin}/public/team/${person.public_token}`
+    : `/public/team/${person.public_token}`;
+
+  function copyReportLink() {
+    navigator.clipboard?.writeText(reportUrl).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    });
+  }
   const projectName = (pid?: string) => projects.find((p) => p.$id === pid)?.name;
 
   const stats = [
@@ -299,23 +310,49 @@ export function PersonDetail({ id }: PersonDetailProps) {
             <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
               {[
                 { label: "Type", value: person.type },
+                { label: "Role", value: person.role },
                 { label: "Email", value: person.email },
                 { label: "Phone", value: person.phone },
-                { label: "Rate basis", value: person.rate_type },
-                { label: "Default rate", value: person.default_rate ? formatCurrency(person.default_rate, currency) : undefined },
                 { label: "Payout", value: person.payout_method ? `${person.payout_method} · ${person.payout_details || "—"}` : undefined },
                 { label: "Joined", value: person.joined_date ? formatDate(person.joined_date) : undefined },
               ].filter((r) => r.value).map((r) => (
                 <div key={r.label} style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: 12 }}>
                   <span style={{ color: "var(--foreground-muted)" }}>{r.label}</span>
-                  <span style={{ fontWeight: 600, color: "var(--foreground)", textAlign: "right", textTransform: r.label === "Type" || r.label === "Rate basis" || r.label === "Payout" ? "capitalize" : "none", wordBreak: "break-all" }}>{r.value}</span>
+                  <span style={{ fontWeight: 600, color: "var(--foreground)", textAlign: "right", textTransform: r.label === "Type" || r.label === "Payout" ? "capitalize" : "none", wordBreak: "break-all" }}>{r.value}</span>
                 </div>
               ))}
             </div>
-            <button onClick={toggleStatus} className="btn btn-ghost" style={{ width: "100%", justifyContent: "center", fontSize: 11, marginTop: 14 }}>
+            {person.portfolio_url && (
+              <a href={person.portfolio_url} target="_blank" rel="noreferrer" className="btn btn-ghost" style={{ width: "100%", justifyContent: "center", fontSize: 11, marginTop: 12 }}>
+                <LinkIcon size={12} /> View Portfolio
+              </a>
+            )}
+            {person.public_token && (
+              <a href={`/public/team/${person.public_token}`} target="_blank" rel="noreferrer" className="btn btn-ghost" style={{ width: "100%", justifyContent: "center", fontSize: 11, marginTop: 8 }}>
+                <FileText size={12} /> Open Their Report
+              </a>
+            )}
+            <button onClick={toggleStatus} className="btn btn-ghost" style={{ width: "100%", justifyContent: "center", fontSize: 11, marginTop: 8 }}>
               Mark as {person.status === "active" ? "Inactive" : "Active"}
             </button>
           </div>
+
+          {person.public_token && (
+            <div className="card">
+              <h3 style={{ fontSize: 12, fontWeight: 700, fontFamily: "var(--font-heading)", marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>
+                <FileText size={13} style={{ color: "var(--accent)" }} /> Shareable Report
+              </h3>
+              <p style={{ fontSize: 11, color: "var(--foreground-muted)", lineHeight: 1.5, marginBottom: 10 }}>
+                Send this private link to {person.name.split(" ")[0]} so they can track their assignments and payments without a login.
+              </p>
+              <div style={{ display: "flex", gap: 6 }}>
+                <input readOnly value={reportUrl} className="input-base" style={{ fontSize: 10.5, flex: 1, fontFamily: "var(--font-mono, monospace)" }} />
+                <button onClick={copyReportLink} className="btn btn-ghost" style={{ fontSize: 11, padding: "0 10px" }} title="Copy link">
+                  {copied ? <Check size={12} style={{ color: "#00965C" }} /> : <Copy size={12} />}
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="card" style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
             <PiggyBank size={14} style={{ color: "var(--foreground-muted)", marginTop: 2, flexShrink: 0 }} />

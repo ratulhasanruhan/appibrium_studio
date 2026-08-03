@@ -165,6 +165,8 @@ export interface Transaction {
   project_id?: string;
   /** Set when this transaction is a payout to a team member. */
   person_id?: string;
+  /** The specific assignment this instalment pays down. */
+  engagement_id?: string;
   invoice_id?: string;
   type: TransactionType;
   amount: number;
@@ -277,16 +279,18 @@ export interface Person {
   name: string;
   email?: string;
   phone?: string;
-  role?: string;                 // job title, e.g. "Frontend Engineer"
+  role?: string;                 // what they do, e.g. "UI Designer"
   type: PersonType;
   status: PersonStatus;
-  rate_type?: RateType;
-  default_rate?: number;
   currency: string;
+  /** Optional link to their portfolio or profile. */
+  portfolio_url?: string;
   payout_method?: PayoutMethod;
   payout_details?: string;       // account or wallet number
   joined_date?: string;
   notes?: string;
+  /** Token for the private report they can view without a login. */
+  public_token: string;
   $createdAt: string;
   $updatedAt: string;
 }
@@ -308,6 +312,8 @@ export interface Engagement {
   start_date?: string;
   end_date?: string;
   notes?: string;
+  /** Letter document recording the agreed terms, once generated. */
+  document_id?: string;
   $createdAt: string;
   $updatedAt: string;
 }

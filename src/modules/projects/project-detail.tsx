@@ -4,16 +4,22 @@ import React, { useState, useEffect } from "react";
 import {
   FolderKanban, Users, Calendar, ArrowLeft, Loader2, Check, AlertCircle,
   ExternalLink, Receipt, Wallet, TrendingUp, TrendingDown, PiggyBank, UserPlus, Trash2, X,
+  BadgeDollarSign, FileSignature,
 } from "lucide-react";
 import Link from "next/link";
 import { getProject, updateProject } from "@/services/projects";
 import { getClient } from "@/services/crm";
 import { getInvoices } from "@/services/invoices";
-import { getTransactions } from "@/services/transactions";
+import { getTransactions, createTransaction } from "@/services/transactions";
 import { getPeople } from "@/services/people";
-import { getEngagements, createEngagement, deleteEngagement } from "@/services/engagements";
+import { sendPayoutNotification } from "@/services/email";
+import { sendPayoutSMS } from "@/services/sms";
+import { getEngagements, createEngagement, updateEngagement, deleteEngagement } from "@/services/engagements";
+import { createLetter, nextReference } from "@/services/letters";
+import { buildLetterBody } from "@/modules/letters/letter-templates";
+import { SIGNATORIES } from "@/lib/company-profile";
 import type { Project, Client, Invoice, Transaction, Person, Engagement } from "@/types";
-import { formatDate, formatCurrency, documentRef } from "@/utils";
+import { formatDate, formatCurrency, documentRef, randomToken } from "@/utils";
 import { calcProjectFinancials, isOutflow } from "@/lib/finance";
 import { INVOICE_STATUS, PROJECT_STATUS_BADGE, TRANSACTION_TYPE_COLOR, ENGAGEMENT_STATUS, statusStyle } from "@/lib/status";
 
@@ -35,6 +41,15 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
   const [assignTitle, setAssignTitle] = useState("");
   const [assigning, setAssigning] = useState(false);
   const [assignError, setAssignError] = useState("");
+
+  const [payFor, setPayFor] = useState<Engagement | null>(null);
+  const [payAmount, setPayAmount] = useState(0);
+  const [payNote, setPayNote] = useState("");
+  const [payDate, setPayDate] = useState(new Date().toISOString().slice(0, 10));
+  const [payNotify, setPayNotify] = useState(true);
+  const [paying, setPaying] = useState(false);
+  const [payError, setPayError] = useState("");
+  const [flash, setFlash] = useState("");
   const [loading, setLoading] = useState(true);
 
   const [status, setStatus] = useState<Project["status"]>("planning");
@@ -68,6 +83,13 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
     return () => { cancelled = true; };
   }, [id]);
 
+  /** Instalments recorded against a specific assignment. */
+  function paidFor(e: Engagement): number {
+    return transactions
+      .filter((t) => t.engagement_id === e.$id && isOutflow(t))
+      .reduce((sum, t) => sum + (t.amount || 0), 0);
+  }
+
   async function reloadTeam() {
     const [ppl, engs, txs] = await Promise.all([
       getPeople(), getEngagements({ projectId: id }), getTransactions({ projectId: id }),
@@ -87,8 +109,8 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
     const res = await createEngagement({
       person_id: assignPersonId,
       project_id: id,
-      title: assignTitle.trim() || `${project?.name ?? "Project"} — ${person?.role || "work"}`,
-      rate_type: person?.rate_type || "fixed",
+      title: assignTitle.trim() || `${person?.role || "Work"} — ${project?.name ?? "Project"}`,
+      rate_type: "fixed",
       agreed_amount: assignBudget,
       currency: project?.currency || "BDT",
       status: "active",
@@ -101,6 +123,101 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
       reloadTeam();
     } else {
       setAssignError(res.error || "Failed to assign.");
+    }
+  }
+
+  /** Records one instalment against a specific assignment. */
+  async function handlePay(e: React.FormEvent) {
+    e.preventDefault();
+    if (!payFor || !payAmount) { setPayError("Enter an amount."); return; }
+    const person = people.find((p) => p.$id === payFor.person_id);
+    const alreadyPaid = paidFor(payFor);
+    const remaining = Math.max(payFor.agreed_amount - alreadyPaid, 0);
+    if (payAmount > remaining) {
+      setPayError(`That exceeds the remaining ${formatCurrency(remaining, currency)} on this assignment.`);
+      return;
+    }
+    setPaying(true);
+    setPayError("");
+    const res = await createTransaction({
+      type: "expense",
+      amount: payAmount,
+      currency: payFor.currency || currency,
+      status: "completed",
+      category: "Team Payout",
+      description: payNote.trim() || `${payFor.title} — instalment`,
+      transaction_date: payDate,
+      person_id: payFor.person_id,
+      project_id: id,
+      engagement_id: payFor.$id,
+    });
+    setPaying(false);
+    if (!res.success) { setPayError(res.error || "Failed to record payment."); return; }
+
+    // Best-effort confirmation; never blocks a payment that is already recorded.
+    if (payNotify && person) {
+      const left = Math.max(remaining - payAmount, 0);
+      try {
+        if (person.email) {
+          await sendPayoutNotification(person.email, person.name, formatCurrency(payAmount, currency),
+            payFor.title, formatDate(payDate), project?.name, formatCurrency(left, currency));
+        }
+        if (person.phone) {
+          await sendPayoutSMS(person.phone, person.name, formatCurrency(payAmount, currency), payFor.title);
+        }
+      } catch (err) {
+        console.error("[Project] payout notification failed:", err);
+      }
+    }
+    setFlash(`Recorded ${formatCurrency(payAmount, currency)} to ${person?.name ?? "team member"}.`);
+    setTimeout(() => setFlash(""), 5000);
+    setPayFor(null); setPayAmount(0); setPayNote("");
+    reloadTeam();
+  }
+
+  /**
+   * Creates a letterhead agreement recording the agreed terms for one
+   * assignment, and links it back so the row opens the stored document.
+   */
+  async function handleGenerateAgreement(e: Engagement) {
+    const person = people.find((p) => p.$id === e.person_id);
+    if (!person) return;
+    const signatory = SIGNATORIES[0];
+    const body = buildLetterBody("agreement", {
+      party_name: person.name,
+      party_address: person.role || "",
+      effective_date: e.start_date || new Date().toISOString().slice(0, 10),
+      term: `Duration of the ${project?.name ?? "project"} engagement`,
+      value: formatCurrency(e.agreed_amount, e.currency || currency),
+      scope: e.title,
+      payment_terms: "Payable in instalments against agreed milestones, by bank transfer or mobile banking.",
+    });
+    const reference = await nextReference("APP-AGR");
+    const res = await createLetter({
+      client_id: undefined,
+      type: "agreement",
+      title: `Work Agreement — ${person.name}`,
+      reference,
+      recipient_name: person.name,
+      recipient_role: person.role,
+      body_html: body,
+      field_values: JSON.stringify({ engagement_id: e.$id, project_id: id }),
+      status: "draft",
+      public_token: randomToken("ltr"),
+      requires_signature: true,
+      show_company_signature: true,
+      signatory_name: signatory.name,
+      signatory_signature: signatory.signature,
+      signatory_title: signatory.title,
+      issue_date: new Date().toISOString().slice(0, 10),
+    });
+    if (res.success && res.data) {
+      await updateEngagement(e.$id, { document_id: res.data.$id });
+      setFlash(`Agreement ${reference} created for ${person.name}.`);
+      setTimeout(() => setFlash(""), 5000);
+      reloadTeam();
+    } else {
+      alert("Could not create the agreement: " + res.error);
     }
   }
 
@@ -157,7 +274,7 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
     .filter((e) => e.status !== "cancelled")
     .reduce((s2, e) => s2 + (e.agreed_amount || 0), 0);
   const teamPaid = transactions
-    .filter((t) => t.person_id && isOutflow(t))
+    .filter((t) => t.engagement_id && isOutflow(t))
     .reduce((s2, t) => s2 + (t.amount || 0), 0);
   const teamDue = Math.max(teamBudget - teamPaid, 0);
 
@@ -187,6 +304,12 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
           <ArrowLeft size={14} /> Back to Projects list
         </Link>
       </div>
+
+      {flash && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 14px", background: "#E6FAF3", border: "1px solid #B3E8D2", borderRadius: "var(--radius-md)", fontSize: 12, color: "#00965C" }}>
+          <Check size={14} /> {flash}
+        </div>
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20, alignItems: "start" }}>
         {/* ─── Left column ─── */}
@@ -324,9 +447,7 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
                   <tbody>
                     {engagements.map((e) => {
                       const person = people.find((p) => p.$id === e.person_id);
-                      const paid = transactions
-                        .filter((t) => t.person_id === e.person_id && isOutflow(t))
-                        .reduce((sm, t) => sm + (t.amount || 0), 0);
+                      const paid = paidFor(e);
                       const due = Math.max(e.agreed_amount - paid, 0);
                       const st = statusStyle(ENGAGEMENT_STATUS, e.status);
                       return (
@@ -344,9 +465,28 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
                           <td style={{ padding: "10px 12px", textAlign: "right", color: "#00965C", fontWeight: 600 }}>{formatCurrency(paid, currency)}</td>
                           <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: due > 0 ? 700 : 400, color: due > 0 ? "#D14F4F" : "var(--foreground-muted)" }}>{formatCurrency(due, currency)}</td>
                           <td style={{ padding: "10px 8px" }}>
-                            <button onClick={() => handleUnassign(e.$id, person?.name || "this member")} title="Remove from project" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--foreground-faint)", padding: 2 }}>
-                              <Trash2 size={12} />
-                            </button>
+                            <div style={{ display: "flex", gap: 4, alignItems: "center", justifyContent: "flex-end" }}>
+                              <button
+                                onClick={() => { setPayFor(e); setPayAmount(0); setPayError(""); }}
+                                disabled={due <= 0}
+                                title={due > 0 ? "Record a payment" : "Fully paid"}
+                                style={{ background: due > 0 ? "var(--accent-subtle)" : "transparent", border: "none", cursor: due > 0 ? "pointer" : "default", color: due > 0 ? "var(--accent)" : "var(--foreground-faint)", padding: "3px 8px", borderRadius: "var(--radius-sm)", fontSize: 10.5, fontWeight: 700, display: "flex", alignItems: "center", gap: 3 }}
+                              >
+                                <BadgeDollarSign size={11} /> Pay
+                              </button>
+                              {e.document_id ? (
+                                <Link href={`/letters/${e.document_id}/edit`} title="Open agreement" style={{ color: "var(--accent)", display: "flex", padding: 3 }}>
+                                  <FileSignature size={12} />
+                                </Link>
+                              ) : (
+                                <button onClick={() => handleGenerateAgreement(e)} title="Create agreement document" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--foreground-faint)", padding: 3 }}>
+                                  <FileSignature size={12} />
+                                </button>
+                              )}
+                              <button onClick={() => handleUnassign(e.$id, person?.name || "this member")} title="Remove from project" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--foreground-faint)", padding: 3 }}>
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -510,12 +650,7 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
                   className="input-base"
                   style={{ fontSize: 12 }}
                   value={assignPersonId}
-                  onChange={(ev) => {
-                    const v = ev.target.value;
-                    setAssignPersonId(v);
-                    const chosen = people.find((p) => p.$id === v);
-                    if (chosen?.default_rate && !assignBudget) setAssignBudget(chosen.default_rate);
-                  }}
+                  onChange={(ev) => setAssignPersonId(ev.target.value)}
                   required
                 >
                   <option value="">Select a person...</option>
@@ -533,12 +668,12 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
                 <label style={assignLabel}>Budget for this project *</label>
                 <input className="input-base" type="number" style={{ fontSize: 12 }} value={assignBudget || ""} onChange={(ev) => setAssignBudget(Number(ev.target.value))} placeholder="40000" required />
                 <p style={{ fontSize: 10, color: "var(--foreground-faint)", marginTop: 4 }}>
-                  Pre-filled from their default rate. This is what you commit to pay them for this project.
+                  What you commit to pay this person for their work on this project. Paid in instalments.
                 </p>
               </div>
               <div>
-                <label style={assignLabel}>Scope / Note</label>
-                <input className="input-base" style={{ fontSize: 12 }} value={assignTitle} onChange={(ev) => setAssignTitle(ev.target.value)} placeholder="Frontend build — leave blank to auto-fill" />
+                <label style={assignLabel}>Work / Scope</label>
+                <input className="input-base" style={{ fontSize: 12 }} value={assignTitle} onChange={(ev) => setAssignTitle(ev.target.value)} placeholder="UI design for the dashboard" />
               </div>
             </div>
 
@@ -558,6 +693,78 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
           </form>
         </div>
       )}
+
+      {/* Record instalment */}
+      {payFor && (() => {
+        const person = people.find((pp) => pp.$id === payFor.person_id);
+        const already = paidFor(payFor);
+        const remaining = Math.max(payFor.agreed_amount - already, 0);
+        return (
+          <div style={{ position: "fixed", inset: 0, zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)" }} onClick={() => setPayFor(null)} />
+            <form onSubmit={handlePay} style={{ position: "relative", width: "100%", maxWidth: 430, background: "var(--background-alt)", borderRadius: "var(--radius-xl)", border: "1px solid var(--border)", padding: 24, boxShadow: "var(--shadow-xl)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                <div>
+                  <h2 style={{ fontSize: 15, fontWeight: 700, fontFamily: "var(--font-heading)" }}>Record Payment</h2>
+                  <p style={{ fontSize: 12, color: "var(--foreground-muted)" }}>{person?.name} · {payFor.title}</p>
+                </div>
+                <button type="button" onClick={() => setPayFor(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--foreground-muted)" }}><X size={16} /></button>
+              </div>
+
+              <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderRadius: "var(--radius-md)", background: "var(--surface)", border: "1px solid var(--border)", marginBottom: 14, fontSize: 12 }}>
+                <span style={{ color: "var(--foreground-muted)" }}>Budget {formatCurrency(payFor.agreed_amount, currency)}</span>
+                <span style={{ color: "#00965C" }}>Paid {formatCurrency(already, currency)}</span>
+                <span style={{ fontWeight: 700, color: remaining > 0 ? "#D14F4F" : "#00965C" }}>Left {formatCurrency(remaining, currency)}</span>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div>
+                  <label style={assignLabel}>Amount *</label>
+                  <input className="input-base" type="number" style={{ fontSize: 12 }} value={payAmount || ""} onChange={(ev) => setPayAmount(Number(ev.target.value))} placeholder="5000" required autoFocus />
+                </div>
+                <div>
+                  <label style={assignLabel}>Date</label>
+                  <input className="input-base" type="date" style={{ fontSize: 12 }} value={payDate} onChange={(ev) => setPayDate(ev.target.value)} />
+                </div>
+                <div style={{ gridColumn: "1/-1" }}>
+                  <label style={assignLabel}>Note</label>
+                  <input className="input-base" style={{ fontSize: 12 }} value={payNote} onChange={(ev) => setPayNote(ev.target.value)} placeholder="Milestone 1 — wireframes delivered" />
+                </div>
+              </div>
+
+              <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+                {[0.25, 0.5, 1].map((f) => (
+                  <button key={f} type="button" onClick={() => setPayAmount(Math.round(remaining * f))}
+                    style={{ flex: 1, padding: "5px 0", fontSize: 11, borderRadius: "var(--radius-sm)", border: "1px solid var(--border)", background: "var(--surface)", color: "var(--foreground-muted)", cursor: "pointer" }}>
+                    {f === 1 ? "Full remaining" : `${f * 100}%`}
+                  </button>
+                ))}
+              </div>
+
+              <label style={{ display: "flex", gap: 9, alignItems: "flex-start", cursor: "pointer", marginTop: 14 }}>
+                <input type="checkbox" checked={payNotify} onChange={(ev) => setPayNotify(ev.target.checked)} style={{ marginTop: 2, accentColor: "var(--accent)" }} />
+                <span style={{ fontSize: 11.5, color: "var(--foreground-2)" }}>
+                  Notify {person?.name?.split(" ")[0] || "them"} by email and SMS with the remaining balance
+                </span>
+              </label>
+
+              {payError && (
+                <div style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#D14F4F", background: "#FEF2F2", border: "1px solid #FAC5C5", padding: "8px 12px", borderRadius: "var(--radius-md)" }}>
+                  <AlertCircle size={13} /> {payError}
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
+                <button type="button" onClick={() => setPayFor(null)} className="btn btn-ghost" style={{ flex: 1, fontSize: 12 }}>Cancel</button>
+                <button type="submit" className="btn btn-primary" style={{ flex: 2, justifyContent: "center", fontSize: 12 }} disabled={paying}>
+                  {paying ? <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> : <BadgeDollarSign size={13} />}
+                  {paying ? "Recording..." : "Record Payment"}
+                </button>
+              </div>
+            </form>
+          </div>
+        );
+      })()}
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );

@@ -5,6 +5,7 @@ export interface TransactionFilter {
   clientId?: string;
   projectId?: string;
   personId?: string;
+  engagementId?: string;
 }
 
 export async function getTransactions(filter: TransactionFilter = {}): Promise<Transaction[]> {
@@ -13,6 +14,7 @@ export async function getTransactions(filter: TransactionFilter = {}): Promise<T
     if (filter.clientId) queries.push(Query.equal("client_id", filter.clientId));
     if (filter.projectId) queries.push(Query.equal("project_id", filter.projectId));
     if (filter.personId) queries.push(Query.equal("person_id", filter.personId));
+    if (filter.engagementId) queries.push(Query.equal("engagement_id", filter.engagementId));
     const res = await databases.listDocuments(DB_ID, COLLECTIONS.TRANSACTIONS, queries);
     return res.documents as unknown as Transaction[];
   } catch (error) {

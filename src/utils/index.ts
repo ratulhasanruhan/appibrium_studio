@@ -114,6 +114,14 @@ export function generateDocId(prefix: string, sequence: number): string {
   return `${prefix}-${year}-${padded}`;
 }
 
+/**
+ * Random token for public share links, e.g. randomToken("ltr") -> ltr_k3f9x2ab1z.
+ * Defined outside components so it is never treated as impure render work.
+ */
+export function randomToken(prefix: string): string {
+  return `${prefix}_${Math.random().toString(36).substring(2, 12)}`;
+}
+
 // ─── Text Helpers ─────────────────────────────────────────────────────── //
 
 export function truncate(str: string, length: number): string {
