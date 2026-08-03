@@ -12,33 +12,12 @@ import { getInvoices } from "@/services/invoices";
 import { getTransactions } from "@/services/transactions";
 import type { Project, Client, Invoice, Transaction } from "@/types";
 import { formatDate, formatCurrency, documentRef } from "@/utils";
+import { calcProjectFinancials, isOutflow } from "@/lib/finance";
+import { INVOICE_STATUS, PROJECT_STATUS_BADGE, TRANSACTION_TYPE_COLOR, statusStyle } from "@/lib/status";
 
 interface ProjectDetailProps {
   id: string;
 }
-
-const STATUS_BADGE: Record<string, string> = {
-  planning:  "badge-planning",
-  active:    "badge-active",
-  completed: "badge-completed",
-  on_hold:   "badge-on-hold",
-  cancelled: "badge-cancelled",
-};
-
-const INVOICE_STATUS: Record<string, { bg: string; color: string }> = {
-  draft:     { bg: "#F5F5F5", color: "#6B7280" },
-  sent:      { bg: "#EEF4FF", color: "#3B72D4" },
-  paid:      { bg: "#E6FAF3", color: "#00965C" },
-  overdue:   { bg: "#FEF2F2", color: "#D14F4F" },
-  cancelled: { bg: "#F5F5F5", color: "#9CA3AF" },
-};
-
-const TYPE_COLOR: Record<string, string> = {
-  income: "#00965C", expense: "#D14F4F", advance: "#3B72D4", refund: "#B45309",
-};
-
-/** Money that reduces the project's net position. */
-const OUTFLOW_TYPES = ["expense", "refund"];
 
 export function ProjectDetail({ id }: ProjectDetailProps) {
   const [project, setProject] = useState<Project | null>(null);
@@ -113,36 +92,15 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
   const currency = project.currency || "BDT";
   const budget = project.budget || 0;
 
-  // ── Financials ──────────────────────────────────────────────────────── //
-  // Billed = everything actually issued to the client. Drafts aren't issued
-  // yet and cancelled invoices are never collectable, so both are excluded.
-  const billed = invoices
-    .filter((i) => i.status !== "draft" && i.status !== "cancelled")
-    .reduce((s, i) => s + (i.total || 0), 0);
-  const received = invoices
-    .filter((i) => i.status === "paid")
-    .reduce((s, i) => s + (i.total || 0), 0);
-  const outstanding = Math.max(billed - received, 0);   // issued but unpaid
-  const notYetBilled = Math.max(budget - billed, 0);    // budget left to invoice
-  const dueFromClient = Math.max(budget - received, 0); // total still to collect
-
-  const expenses = transactions
-    .filter((t) => OUTFLOW_TYPES.includes(t.type))
-    .reduce((s, t) => s + (t.amount || 0), 0);
-  // Income already counted through paid invoices must not be double-counted.
-  const otherIncome = transactions
-    .filter((t) => !OUTFLOW_TYPES.includes(t.type) && !t.invoice_id)
-    .reduce((s, t) => s + (t.amount || 0), 0);
-  const net = received + otherIncome - expenses;
-  const collectedPct = budget > 0 ? Math.min(Math.round((received / budget) * 100), 100) : 0;
+  const fin = calcProjectFinancials(budget, invoices, transactions);
 
   const stats = [
-    { label: "Budget",      value: budget,      color: "var(--foreground)",                 icon: PiggyBank,    hint: "Agreed project value" },
-    { label: "Invoiced",    value: billed,      color: "#3B72D4",                           icon: Receipt,      hint: "Issued to the client (excludes drafts and cancelled)" },
-    { label: "Received",    value: received,    color: "#00965C",                           icon: TrendingUp,   hint: "Paid invoices" },
-    { label: "Outstanding", value: outstanding, color: "#B45309",                           icon: Wallet,       hint: "Invoiced but awaiting payment" },
-    { label: "Expenses",    value: expenses,    color: "#D14F4F",                           icon: TrendingDown, hint: "Costs logged against this project" },
-    { label: "Net Position",value: net,         color: net >= 0 ? "#00965C" : "#D14F4F",    icon: PiggyBank,    hint: "Received plus other income, minus expenses" },
+    { label: "Budget",      value: fin.budget,  color: "var(--foreground)",                 icon: PiggyBank,    hint: "Agreed project value" },
+    { label: "Invoiced",    value: fin.billed,  color: "#3B72D4",                           icon: Receipt,      hint: "Issued to the client (excludes drafts and cancelled)" },
+    { label: "Received",    value: fin.received,color: "#00965C",                           icon: TrendingUp,   hint: "Paid invoices" },
+    { label: "Outstanding", value: fin.outstanding, color: "#B45309",                           icon: Wallet,       hint: "Invoiced but awaiting payment" },
+    { label: "Expenses",    value: fin.expenses,color: "#D14F4F",                           icon: TrendingDown, hint: "Costs logged against this project" },
+    { label: "Net Position",value: fin.net,     color: fin.net >= 0 ? "#00965C" : "#D14F4F",    icon: PiggyBank,    hint: "Received plus other income, minus expenses" },
   ];
 
   const thStyle = (right: boolean): React.CSSProperties => ({
@@ -169,7 +127,7 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
               </div>
               <div>
                 <h2 style={{ fontSize: 16, fontWeight: 700, fontFamily: "var(--font-heading)", color: "var(--foreground)" }}>{project.name}</h2>
-                <span className={`badge ${STATUS_BADGE[project.status] || "badge-planning"}`} style={{ textTransform: "capitalize", display: "inline-block", marginTop: 4 }}>
+                <span className={`badge ${PROJECT_STATUS_BADGE[project.status] || "badge-planning"}`} style={{ textTransform: "capitalize", display: "inline-block", marginTop: 4 }}>
                   {project.status.replace("_", " ")}
                 </span>
               </div>
@@ -204,14 +162,14 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
               <div style={{ padding: "12px 14px", borderRadius: "var(--radius-md)", background: "var(--background-alt)", border: "1px solid var(--border)" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
                   <span style={{ fontSize: 11, fontWeight: 600, color: "var(--foreground-2)" }}>Collected against budget</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, fontFamily: "var(--font-heading)", color: "var(--accent)" }}>{collectedPct}%</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, fontFamily: "var(--font-heading)", color: "var(--accent)" }}>{fin.collectedPct}%</span>
                 </div>
                 <div style={{ height: 7, borderRadius: 99, background: "var(--surface)", overflow: "hidden", border: "1px solid var(--border)" }}>
-                  <div style={{ width: `${collectedPct}%`, height: "100%", background: "linear-gradient(90deg,#00B872,#00E090)", borderRadius: 99 }} />
+                  <div style={{ width: `${fin.collectedPct}%`, height: "100%", background: "linear-gradient(90deg,#00B872,#00E090)", borderRadius: 99 }} />
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginTop: 8, fontSize: 11, color: "var(--foreground-muted)" }}>
-                  <span>Still to collect: <strong style={{ color: dueFromClient > 0 ? "#D14F4F" : "#00965C" }}>{formatCurrency(dueFromClient, currency)}</strong></span>
-                  <span>Not yet invoiced: <strong style={{ color: "var(--foreground-2)" }}>{formatCurrency(notYetBilled, currency)}</strong></span>
+                  <span>Still to collect: <strong style={{ color: fin.dueFromClient > 0 ? "#D14F4F" : "#00965C" }}>{formatCurrency(fin.dueFromClient, currency)}</strong></span>
+                  <span>Not yet invoiced: <strong style={{ color: "var(--foreground-2)" }}>{formatCurrency(fin.notYetBilled, currency)}</strong></span>
                 </div>
               </div>
             )}
@@ -240,7 +198,7 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
                   </thead>
                   <tbody>
                     {invoices.map((inv) => {
-                      const st = INVOICE_STATUS[inv.status] ?? INVOICE_STATUS.draft;
+                      const st = statusStyle(INVOICE_STATUS, inv.status);
                       return (
                         <tr key={inv.$id} style={{ borderBottom: "1px solid var(--border-subtle)" }}>
                           <td style={{ padding: "10px 12px" }}>
@@ -258,7 +216,7 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
                     })}
                     <tr style={{ background: "var(--surface)" }}>
                       <td colSpan={4} style={{ padding: "10px 12px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--foreground-muted)" }}>Total invoiced</td>
-                      <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 800, fontFamily: "var(--font-heading)", fontSize: 13, color: "var(--accent)" }}>{formatCurrency(billed, currency)}</td>
+                      <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 800, fontFamily: "var(--font-heading)", fontSize: 13, color: "var(--accent)" }}>{formatCurrency(fin.billed, currency)}</td>
                     </tr>
                   </tbody>
                 </table>
@@ -291,16 +249,16 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
                   </thead>
                   <tbody>
                     {transactions.map((t) => {
-                      const out = OUTFLOW_TYPES.includes(t.type);
+                      const out = isOutflow(t);
                       return (
                         <tr key={t.$id} style={{ borderBottom: "1px solid var(--border-subtle)" }}>
                           <td style={{ padding: "10px 12px", fontWeight: 600, color: "var(--foreground)" }}>{t.description}</td>
                           <td style={{ padding: "10px 12px", color: "var(--foreground-2)" }}>{t.category || "General"}</td>
                           <td style={{ padding: "10px 12px", color: "var(--foreground-muted)" }}>{formatDate(t.transaction_date)}</td>
                           <td style={{ padding: "10px 12px" }}>
-                            <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: TYPE_COLOR[t.type] || "var(--foreground-muted)" }}>{t.type}</span>
+                            <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: TRANSACTION_TYPE_COLOR[t.type] || "var(--foreground-muted)" }}>{t.type}</span>
                           </td>
-                          <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700, fontFamily: "var(--font-heading)", color: TYPE_COLOR[t.type] }}>
+                          <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700, fontFamily: "var(--font-heading)", color: TRANSACTION_TYPE_COLOR[t.type] }}>
                             {out ? "−" : "+"}{formatCurrency(t.amount, t.currency || currency)}
                           </td>
                         </tr>
@@ -308,7 +266,7 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
                     })}
                     <tr style={{ background: "var(--surface)" }}>
                       <td colSpan={4} style={{ padding: "10px 12px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--foreground-muted)" }}>Total expenses</td>
-                      <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 800, fontFamily: "var(--font-heading)", fontSize: 13, color: "#D14F4F" }}>−{formatCurrency(expenses, currency)}</td>
+                      <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 800, fontFamily: "var(--font-heading)", fontSize: 13, color: "#D14F4F" }}>−{formatCurrency(fin.expenses, currency)}</td>
                     </tr>
                   </tbody>
                 </table>

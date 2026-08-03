@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { Search, ArrowDownRight, ArrowUpRight, Plus, Loader2, X, AlertCircle, Check, DollarSign } from "lucide-react";
-import type { Transaction, Client, Project } from "@/types";
+import type { Transaction, Client, Project, Person } from "@/types";
 import { formatDate, formatCurrency } from "@/utils";
 import { getTransactions, createTransaction } from "@/services/transactions";
 import { getClients } from "@/services/crm";
 import { getProjects } from "@/services/projects";
+import { getPeople } from "@/services/people";
 
 const TYPE_COLORS: Record<string, string> = {
   income: "#00965C",
@@ -19,6 +20,7 @@ export function TransactionsList() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [clients, setClients]           = useState<Client[]>([]);
   const [projects, setProjects]         = useState<Project[]>([]);
+  const [people, setPeople]             = useState<Person[]>([]);
   const [loading, setLoading]           = useState(true);
   const [search, setSearch]             = useState("");
   const [typeFilter, setTypeFilter]     = useState("all");
@@ -36,15 +38,19 @@ export function TransactionsList() {
   const [category, setCategory]   = useState("Marketing");
   const [clientId, setClientId]   = useState("");
   const [projectId, setProjectId] = useState("");
+  const [personId, setPersonId]   = useState("");
   const [tDate, setTDate]         = useState(new Date().toISOString().slice(0, 10));
 
   async function loadData() {
     setLoading(true);
     try {
-      const [txList, cliList, projList] = await Promise.all([getTransactions(), getClients(), getProjects()]);
+      const [txList, cliList, projList, peopleList] = await Promise.all([
+        getTransactions(), getClients(), getProjects(), getPeople(),
+      ]);
       setTransactions(txList);
       setClients(cliList);
       setProjects(projList);
+      setPeople(peopleList);
     } catch (err) {
       console.error("[TransactionsList] load error:", err);
     } finally {
@@ -88,6 +94,7 @@ export function TransactionsList() {
       description,
       client_id: clientId || undefined,
       project_id: projectId || undefined,
+      person_id: personId || undefined,
       transaction_date: tDate,
     });
 
@@ -97,7 +104,7 @@ export function TransactionsList() {
       setTimeout(() => {
         setShowModal(false);
         setSaveStatus("idle");
-        setAmount(0); setDescription(""); setCategory("Marketing"); setClientId(""); setProjectId(""); setTDate(new Date().toISOString().slice(0, 10));
+        setAmount(0); setDescription(""); setCategory("Marketing"); setClientId(""); setProjectId(""); setPersonId(""); setTDate(new Date().toISOString().slice(0, 10));
         loadData();
       }, 800);
     } else {
@@ -316,6 +323,15 @@ export function TransactionsList() {
                     <option value="">None</option>
                     {clients.map((c) => (
                       <option key={c.$id} value={c.$id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Paid To — Team Member (Optional)</label>
+                  <select className="input-base" value={personId} onChange={(e) => setPersonId(e.target.value)}>
+                    <option value="">Not a team payout</option>
+                    {people.map((p) => (
+                      <option key={p.$id} value={p.$id}>{p.name}{p.role ? ` — ${p.role}` : ""}</option>
                     ))}
                   </select>
                 </div>

@@ -4,6 +4,7 @@ import type { Transaction, ActionResult } from "@/types";
 export interface TransactionFilter {
   clientId?: string;
   projectId?: string;
+  personId?: string;
 }
 
 export async function getTransactions(filter: TransactionFilter = {}): Promise<Transaction[]> {
@@ -11,6 +12,7 @@ export async function getTransactions(filter: TransactionFilter = {}): Promise<T
     const queries = [Query.orderDesc("$createdAt"), Query.limit(100)];
     if (filter.clientId) queries.push(Query.equal("client_id", filter.clientId));
     if (filter.projectId) queries.push(Query.equal("project_id", filter.projectId));
+    if (filter.personId) queries.push(Query.equal("person_id", filter.personId));
     const res = await databases.listDocuments(DB_ID, COLLECTIONS.TRANSACTIONS, queries);
     return res.documents as unknown as Transaction[];
   } catch (error) {

@@ -50,6 +50,8 @@ export const COLLECTIONS = {
   WORKSPACE_SETTINGS:process.env.NEXT_PUBLIC_COL_WORKSPACE_SETTINGS ?? "workspace_settings",
   QUOTES:             process.env.NEXT_PUBLIC_COL_QUOTES             ?? "quotes",
   LETTERS:            process.env.NEXT_PUBLIC_COL_LETTERS            ?? "letters",
+  PEOPLE:             process.env.NEXT_PUBLIC_COL_PEOPLE             ?? "people",
+  ENGAGEMENTS:        process.env.NEXT_PUBLIC_COL_ENGAGEMENTS        ?? "engagements",
 } as const;
 
 export const BUCKETS = {

@@ -21,6 +21,7 @@ import {
   LogOut,
   ClipboardList,
   FileSignature,
+  UserCog,
 } from "lucide-react";
 
 interface NavItem {
@@ -36,6 +37,7 @@ const primaryNav: NavItem[] = [
   { label: "Projects",     href: "/projects",     icon: FolderKanban },
   { label: "Proposals",    href: "/proposals",    icon: FileText },
   { label: "Documents",    href: "/letters",      icon: FileSignature },
+  { label: "Team",         href: "/people",       icon: UserCog },
   { label: "Invoices",     href: "/invoices",     icon: Receipt },
   { label: "Transactions", href: "/transactions", icon: ArrowLeftRight },
 ];
@@ -187,7 +189,7 @@ export function Sidebar() {
       <div className="sidebar-section" style={{ marginTop: 4 }}>
         <p className="sidebar-label">Workspace</p>
         {primaryNav.filter(item => {
-          if (item.label === "CRM" || item.label === "Transactions" || item.label === "Documents") return isAdmin;
+          if (item.label === "CRM" || item.label === "Transactions" || item.label === "Documents" || item.label === "Team") return isAdmin;
           return true;
         }).map((item) => <NavLink key={item.href} item={item} />)}
       </div>

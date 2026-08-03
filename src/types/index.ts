@@ -163,6 +163,8 @@ export interface Transaction {
   client_id?: string;
   /** Links an income or expense to a specific project. */
   project_id?: string;
+  /** Set when this transaction is a payout to a team member. */
+  person_id?: string;
   invoice_id?: string;
   type: TransactionType;
   amount: number;
@@ -259,6 +261,55 @@ export interface ActionResult<T = void> {
   success: boolean;
   data?: T;
   error?: string;
+}
+
+// ─── Team & Payables ──────────────────────────────────────────────────── //
+
+export type PersonType = "employee" | "contractor" | "intern";
+export type PersonStatus = "active" | "inactive";
+export type RateType = "fixed" | "hourly" | "monthly";
+export type EngagementStatus = "active" | "completed" | "cancelled";
+export type PayoutMethod = "bank" | "bkash" | "nagad" | "rocket" | "cash";
+
+/** Someone the company pays: staff, contractor, or intern. */
+export interface Person {
+  $id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  role?: string;                 // job title, e.g. "Frontend Engineer"
+  type: PersonType;
+  status: PersonStatus;
+  rate_type?: RateType;
+  default_rate?: number;
+  currency: string;
+  payout_method?: PayoutMethod;
+  payout_details?: string;       // account or wallet number
+  joined_date?: string;
+  notes?: string;
+  $createdAt: string;
+  $updatedAt: string;
+}
+
+/**
+ * A commitment to pay someone — the payable mirror of an invoice.
+ * project_id is optional so the same record covers both project work
+ * ("ZanVerify frontend, 40,000 fixed") and standing pay ("August salary").
+ */
+export interface Engagement {
+  $id: string;
+  person_id: string;
+  project_id?: string;
+  title: string;
+  rate_type: RateType;
+  agreed_amount: number;
+  currency: string;
+  status: EngagementStatus;
+  start_date?: string;
+  end_date?: string;
+  notes?: string;
+  $createdAt: string;
+  $updatedAt: string;
 }
 
 // ─── Letterhead Documents ─────────────────────────────────────────────── //
