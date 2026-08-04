@@ -37,18 +37,28 @@ export default function CRMPage() {
     }
     setSaving(true);
     setError("");
-    const result = await createClient({ name, email, phone, website, address, status: cStatus });
-    setSaving(false);
-    if (result.success) {
-      setStatus("saved");
-      setTimeout(() => {
-        setShowModal(false);
-        setRefreshKey((k) => k + 1); // triggers re-fetch in table
-        setStatus("idle");
-      }, 800);
-    } else {
-      setError(result.error || "Failed to create client.");
+    try {
+      const result = await createClient({ name, email, phone, website, address, status: cStatus });
+      if (result.success) {
+        setStatus("saved");
+        setTimeout(() => {
+          setShowModal(false);
+          setRefreshKey((k) => k + 1); // triggers re-fetch in table
+          setStatus("idle");
+        }, 800);
+      } else {
+        setError(result.error || "Failed to create client.");
+        setStatus("error");
+      }
+    } catch (err) {
+      // A rejected Server Action must never leave the dialog spinning. This
+      // most often means the open page predates the current deployment, so its
+      // action id no longer resolves — a reload fixes it.
+      console.error("[CRM] createClient failed:", err);
+      setError("Could not reach the server. Please reload the page and try again.");
       setStatus("error");
+    } finally {
+      setSaving(false);
     }
   }
 
