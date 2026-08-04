@@ -25,6 +25,9 @@ import { getInvoices } from "@/services/invoices";
 import { getProposals } from "@/services/proposals";
 import { getClients } from "@/services/crm";
 import { getProjects } from "@/services/projects";
+import { getPortalData } from "@/services/portal";
+import { account } from "@/lib/appwrite/client";
+import { hasAdminRole } from "@/utils";
 import type { Invoice, Proposal, Client, Project } from "@/types";
 import Link from "next/link";
 
@@ -170,11 +173,26 @@ export function DashboardWidgets() {
   const [clients, setClients]     = useState<Client[]>([]);
   const [projects, setProjects]   = useState<Project[]>([]);
   const [loading, setLoading]     = useState(true);
+  const [isStaff, setIsStaff]     = useState(true);
 
   useEffect(() => {
     async function load() {
       setLoading(true);
       try {
+        const user = await account.get();
+        const staff = hasAdminRole(user.labels || []);
+        setIsStaff(staff);
+
+        if (!staff) {
+          // Clients see only their own workspace — never company-wide figures.
+          const portal = await getPortalData();
+          setInvoices(portal.invoices);
+          setProposals(portal.proposals);
+          setProjects(portal.projects);
+          setClients(portal.client ? [portal.client] : []);
+          return;
+        }
+
         const [inv, prop, cli, proj] = await Promise.all([
           getInvoices(),
           getProposals(),
@@ -259,9 +277,9 @@ export function DashboardWidgets() {
 
       {/* ─── Stat Cards ─── */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14 }}>
-        <StatCard id="stat-total-revenue"     label="Total Revenue"     value={formatCurrency(totalRevenue)}  icon={DollarSign} accent loading={loading} />
-        <StatCard id="stat-outstanding"       label="Outstanding"       value={formatCurrency(outstanding)}   icon={Clock}      loading={loading} />
-        <StatCard id="stat-pending-proposals" label="Pending Proposals" value={String(pendingProposals)}      icon={FileText}   loading={loading} />
+        <StatCard id="stat-total-revenue"     label={isStaff ? "Total Revenue" : "Total Paid"}   value={formatCurrency(totalRevenue)}  icon={DollarSign} accent loading={loading} />
+        <StatCard id="stat-outstanding"       label={isStaff ? "Outstanding" : "Amount Due"}    value={formatCurrency(outstanding)}   icon={Clock}      loading={loading} />
+        <StatCard id="stat-pending-proposals" label={isStaff ? "Pending Proposals" : "Open Proposals"} value={String(pendingProposals)}      icon={FileText}   loading={loading} />
         <StatCard id="stat-pending-invoices"  label="Pending Invoices"  value={String(pendingInvoices)}       icon={Receipt}    loading={loading} />
       </div>
 
@@ -367,7 +385,8 @@ export function DashboardWidgets() {
       {/* ─── Bottom Row ─── */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
 
-        {/* Top Clients */}
+        {/* Top Clients — staff only; a client would just see themselves */}
+        {isStaff && (
         <div id="panel-top-clients" className="card" style={{ padding: 0, overflow: "hidden" }}>
           <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <h2 style={{ fontSize: 13, fontWeight: 600, fontFamily: "var(--font-heading)" }}>Top Clients</h2>
@@ -431,7 +450,7 @@ export function DashboardWidgets() {
               ))
             )}
           </div>
-        </div>
+        </div>)}
 
         {/* Project Status */}
         <div id="panel-project-status" className="card" style={{ padding: 0, overflow: "hidden" }}>

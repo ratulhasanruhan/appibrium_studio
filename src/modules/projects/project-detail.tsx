@@ -19,7 +19,8 @@ import { createLetter, nextReference } from "@/services/letters";
 import { buildLetterBody } from "@/modules/letters/letter-templates";
 import { SIGNATORIES } from "@/lib/company-profile";
 import type { Project, Client, Invoice, Transaction, Person, Engagement } from "@/types";
-import { formatDate, formatCurrency, documentRef, randomToken } from "@/utils";
+import { formatDate, formatCurrency, documentRef, randomToken, hasAdminRole } from "@/utils";
+import { account } from "@/lib/appwrite/client";
 import { calcProjectFinancials, isOutflow, effectiveInvoiceStatus } from "@/lib/finance";
 import { INVOICE_STATUS, PROJECT_STATUS_BADGE, TRANSACTION_TYPE_COLOR, ENGAGEMENT_STATUS, statusStyle } from "@/lib/status";
 
@@ -51,6 +52,7 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
   const [payError, setPayError] = useState("");
   const [flash, setFlash] = useState("");
   const [loading, setLoading] = useState(true);
+  const [denied, setDenied] = useState(false);
 
   const [status, setStatus] = useState<Project["status"]>("planning");
   const [updating, setUpdating] = useState(false);
@@ -59,6 +61,12 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
   useEffect(() => {
     let cancelled = false;
     async function load() {
+      // This page exposes costs, team rates and net margin — staff only.
+      const user = await account.get().catch(() => null);
+      if (!user || !hasAdminRole(user.labels || [])) {
+        if (!cancelled) { setDenied(true); setLoading(false); }
+        return;
+      }
       const proj = await getProject(id);
       if (cancelled) return;
       if (proj) {
@@ -248,6 +256,18 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
       <div className="card" style={{ minHeight: 300, display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
         <Loader2 size={20} style={{ animation: "spin 1s linear infinite", color: "var(--accent)" }} />
         <span style={{ fontSize: 13, color: "var(--foreground-muted)" }}>Loading project details...</span>
+      </div>
+    );
+  }
+
+  if (denied) {
+    return (
+      <div className="card" style={{ minHeight: 260, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 }}>
+        <AlertCircle size={32} style={{ color: "#B45309" }} />
+        <p style={{ color: "var(--foreground-muted)", fontSize: 13, fontWeight: 500 }}>This workspace view is available to staff only.</p>
+        <Link href="/projects" className="btn btn-ghost" style={{ fontSize: 12 }}>
+          <ArrowLeft size={13} /> Back to Projects
+        </Link>
       </div>
     );
   }

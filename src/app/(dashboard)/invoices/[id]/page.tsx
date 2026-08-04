@@ -9,7 +9,8 @@ import { getTransactions, createTransaction } from "@/services/transactions";
 import { getClient } from "@/services/crm";
 import { getProject } from "@/services/projects";
 import type { Invoice, Client, InvoiceItem, Project } from "@/types";
-import { formatDate, formatCurrency, documentRef } from "@/utils";
+import { formatDate, formatCurrency, documentRef, hasAdminRole } from "@/utils";
+import { account } from "@/lib/appwrite/client";
 import { useParams } from "next/navigation";
 import { sendInvoiceSMS } from "@/services/sms";
 
@@ -30,6 +31,7 @@ export default function InvoiceDetailPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [items, setItems]     = useState<InvoiceItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [denied, setDenied] = useState(false);
 
   // Status Change State
   const [status, setStatus]   = useState<Invoice["status"]>("draft");
@@ -75,6 +77,13 @@ export default function InvoiceDetailPage() {
     async function load() {
       if (!id) return;
       setLoading(true);
+      // Internal invoice controls are staff only; clients use their share link.
+      const user = await account.get().catch(() => null);
+      if (!user || !hasAdminRole(user.labels || [])) {
+        setDenied(true);
+        setLoading(false);
+        return;
+      }
       const inv = await getInvoice(id);
       if (inv) {
         setInvoice(inv);
@@ -146,6 +155,18 @@ export default function InvoiceDetailPage() {
         <Loader2 size={20} style={{ animation: "spin 1s linear infinite", color: "var(--accent)" }} />
         <span style={{ fontSize: 13, color: "var(--foreground-muted)" }}>Loading invoice details...</span>
         <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  if (denied) {
+    return (
+      <div className="card" style={{ minHeight: 260, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12 }}>
+        <AlertCircle size={32} style={{ color: "#B45309" }} />
+        <p style={{ color: "var(--foreground-muted)", fontSize: 13, fontWeight: 500 }}>This invoice workspace is available to staff only.</p>
+        <Link href="/invoices" className="btn btn-ghost" style={{ fontSize: 12 }}>
+          <ArrowLeft size={13} /> Back to Invoices
+        </Link>
       </div>
     );
   }
