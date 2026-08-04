@@ -9,7 +9,7 @@
  */
 
 import { createAdminClient, ID, Query } from "@/lib/appwrite/server";
-import { databases, DB_ID, COLLECTIONS } from "@/lib/appwrite/client";
+import { DB_ID, COLLECTIONS } from "@/lib/appwrite/client";
 import { normalizeBDPhone } from "@/utils";
 import type { Client, ActionResult } from "@/types";
 
@@ -17,9 +17,10 @@ export async function createClient(
   data: Omit<Client, "$id" | "$createdAt" | "$updatedAt">
 ): Promise<ActionResult<Client>> {
   try {
-    // Auth-user provisioning has no public-SDK equivalent, so it's the one
-    // operation here that genuinely needs the admin API key.
-    const { users } = createAdminClient();
+    // This runs on the server with no user session, so every call here must go
+    // through the admin client — the browser SDK would be treated as a guest
+    // and rejected by the staff-only collection permissions.
+    const { users, databases } = createAdminClient();
     const cleanEmail = data.email.trim().toLowerCase();
 
     // 1. Ensure Appwrite Auth user exists (or create it) FIRST
