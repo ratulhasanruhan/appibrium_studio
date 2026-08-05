@@ -30,6 +30,7 @@ const PIE_COLORS = ["#00965C", "#3B72D4", "#B45309", "#D14F4F", "#6B8F7C"];
 
 /** Reporting windows, in months. 0 means everything on record. */
 const PERIODS = [
+  { label: "1M", months: 1 },
   { label: "3M", months: 3 },
   { label: "6M", months: 6 },
   { label: "12M", months: 12 },
@@ -83,7 +84,10 @@ export function AnalyticsDashboard() {
     name: k.replace("_", " ").toUpperCase(), value: v,
   }));
 
-  const periodLabel = months ? `last ${months} months` : "all time";
+  // withinMonths(1) starts at the first of the current month, so "1M" really
+  // means this month to date rather than a rolling 30 days.
+  const periodLabel = months === 0 ? "all time" : months === 1 ? "this month" : `last ${months} months`;
+  const periodTitle = periodLabel.charAt(0).toUpperCase() + periodLabel.slice(1);
 
   function exportCsv() {
     const rows: CsvRow[] = [
@@ -137,7 +141,7 @@ export function AnalyticsDashboard() {
       const html = buildFinancialReportHtml({
         companyName: co2.name,
         companyAddress: co2.address,
-        periodLabel: periodLabel.replace(/^last /, "Last ").replace(/^all time$/, "All time"),
+        periodLabel: periodTitle,
         totals: co, months: series, clients: byClient, team: byTeam,
         sections: opts?.sections,
         heading: opts?.heading,
