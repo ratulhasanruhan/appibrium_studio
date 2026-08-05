@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import {
   DollarSign, TrendingUp, TrendingDown, PiggyBank, Loader2,
-  Download, Printer, Users,
+  Download, FileDown, Users, UserCog, Loader2 as Spin,
 } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
@@ -15,12 +15,15 @@ import { getClients } from "@/services/crm";
 import { getTransactions } from "@/services/transactions";
 import { getEngagements } from "@/services/engagements";
 import {
-  calcCompanyFinancials, monthlySeries, clientFinancials,
+  calcCompanyFinancials, monthlySeries, clientFinancials, teamFinancials,
   withinMonths, invoiceIncomeDate, isOutflow,
 } from "@/lib/finance";
+import { buildFinancialReportHtml, type ReportSection } from "./report-html";
+import { getPeople } from "@/services/people";
+import { getCompanyDetails } from "@/services/settings";
 import { downloadCsv, type CsvRow } from "@/lib/csv";
 import { formatCurrency, formatDate } from "@/utils";
-import type { Invoice, Project, Client, Transaction, Engagement } from "@/types";
+import type { Invoice, Project, Client, Transaction, Engagement, Person } from "@/types";
 
 const PIE_COLORS = ["#00965C", "#3B72D4", "#B45309", "#D14F4F", "#6B8F7C"];
 
@@ -39,16 +42,18 @@ export function AnalyticsDashboard() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [engagements, setEngagements] = useState<Engagement[]>([]);
   const [loading, setLoading] = useState(true);
+  const [people, setPeople] = useState<Person[]>([]);
   const [months, setMonths] = useState(6);
+  const [pdfBusy, setPdfBusy] = useState(false);
 
   useEffect(() => {
     async function load() {
       try {
-        const [inv, proj, cli, txs, engs] = await Promise.all([
-          getInvoices(), getProjects(), getClients(), getTransactions(), getEngagements(),
+        const [inv, proj, cli, txs, engs, ppl] = await Promise.all([
+          getInvoices(), getProjects(), getClients(), getTransactions(), getEngagements(), getPeople(),
         ]);
         setInvoices(inv); setProjects(proj); setClients(cli);
-        setTransactions(txs); setEngagements(engs);
+        setTransactions(txs); setEngagements(engs); setPeople(ppl);
       } catch (err) {
         console.error("[Analytics] failed to load:", err);
       } finally {
@@ -69,6 +74,7 @@ export function AnalyticsDashboard() {
   const co = calcCompanyFinancials(periodInvoices, periodTx, projects, engagements);
   const series = monthlySeries(invoices, transactions, months || 12);
   const byClient = clientFinancials(clients, invoices, projects);
+  const byTeam = teamFinancials(people, engagements, transactions.filter((t) => t.person_id));
 
   const statusCounts: Record<string, number> = {};
   projects.forEach((p) => { statusCounts[p.status] = (statusCounts[p.status] || 0) + 1; });
@@ -109,6 +115,10 @@ export function AnalyticsDashboard() {
         c.name, c.projects, c.agreed, c.invoiced, c.received, c.outstanding, c.stillToCollect,
       ]),
       [],
+      ["BY TEAM MEMBER"],
+      ["Person", "Role", "Type", "Engagements", "Agreed", "Paid", "Still owed"],
+      ...byTeam.map((m): CsvRow => [m.name, m.role, m.type, m.engagements, m.agreed, m.paid, m.owed]),
+      [],
       ["TRANSACTIONS"],
       ["Date", "Description", "Category", "Type", "Amount"],
       ...periodTx.map((t): CsvRow => [
@@ -117,6 +127,39 @@ export function AnalyticsDashboard() {
       ]),
     ];
     downloadCsv(`appibrium-financial-report-${new Date().toISOString().slice(0, 10)}`, rows);
+  }
+
+  async function downloadPdf(opts?: { sections?: ReportSection[]; heading?: string; slug?: string }) {
+    setPdfBusy(true);
+    try {
+      const co2 = await getCompanyDetails();
+      const html = buildFinancialReportHtml({
+        companyName: co2.name,
+        companyAddress: co2.address,
+        periodLabel: periodLabel.replace(/^last /, "Last ").replace(/^all time$/, "All time"),
+        totals: co, months: series, clients: byClient, team: byTeam,
+        sections: opts?.sections,
+        heading: opts?.heading,
+      });
+      const res = await fetch("/api/pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ html, filename: `financial-report-${new Date().toISOString().slice(0, 10)}.pdf` }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `appibrium-${opts?.slug ?? "financial-report"}-${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("[Analytics] PDF export failed:", err);
+      alert("Could not build the PDF. Please try again.");
+    } finally {
+      setPdfBusy(false);
+    }
   }
 
   if (loading) {
@@ -158,8 +201,9 @@ export function AnalyticsDashboard() {
           <button className="btn btn-ghost" style={{ fontSize: 12 }} onClick={exportCsv}>
             <Download size={13} /> Export CSV
           </button>
-          <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={() => window.print()}>
-            <Printer size={13} /> Print Report
+          <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={() => downloadPdf()} disabled={pdfBusy}>
+            {pdfBusy ? <Spin size={13} style={{ animation: "spin 1s linear infinite" }} /> : <FileDown size={13} />}
+            {pdfBusy ? "Building PDF..." : "Download PDF"}
           </button>
         </div>
       </div>
@@ -209,6 +253,43 @@ export function AnalyticsDashboard() {
               <Bar dataKey="expenses" fill="#D14F4F" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Monthly breakdown */}
+      <div className="card">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+          <h3 style={{ fontSize: 13, fontWeight: 600, fontFamily: "var(--font-heading)" }}>Monthly Breakdown</h3>
+          <span style={{ fontSize: 11, color: "var(--foreground-muted)" }}>Same figures as the chart, to the taka</span>
+        </div>
+        <div className="an-scroll" style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-md)", overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, minWidth: 420 }}>
+            <thead>
+              <tr style={{ background: "var(--surface)", borderBottom: "1px solid var(--border)" }}>
+                {["Month", "Income", "Expenses", "Net"].map((h, i) => (
+                  <th key={h} style={{ padding: "9px 12px", textAlign: i === 0 ? "left" : "right", fontSize: 10, fontWeight: 700, color: "var(--foreground-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {series.map((m) => (
+                <tr key={m.key} style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+                  <td style={{ padding: "9px 12px", fontWeight: 600, color: "var(--foreground)" }}>{m.label}</td>
+                  <td style={{ padding: "9px 12px", textAlign: "right", color: "#00965C" }}>{formatCurrency(m.income)}</td>
+                  <td style={{ padding: "9px 12px", textAlign: "right", color: "#D14F4F" }}>{formatCurrency(m.expenses)}</td>
+                  <td style={{ padding: "9px 12px", textAlign: "right", fontWeight: 700, color: m.net >= 0 ? "var(--foreground)" : "#D14F4F" }}>{formatCurrency(m.net)}</td>
+                </tr>
+              ))}
+              <tr style={{ background: "var(--surface)" }}>
+                <td style={{ padding: "9px 12px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--foreground-muted)" }}>Total</td>
+                {(["income", "expenses", "net"] as const).map((k) => (
+                  <td key={k} style={{ padding: "9px 12px", textAlign: "right", fontWeight: 800, fontFamily: "var(--font-heading)", color: k === "income" ? "#00965C" : k === "expenses" ? "#D14F4F" : "var(--foreground)" }}>
+                    {formatCurrency(series.reduce((a, m) => a + m[k], 0))}
+                  </td>
+                ))}
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
 
@@ -277,7 +358,17 @@ export function AnalyticsDashboard() {
           <h3 style={{ fontSize: 13, fontWeight: 600, fontFamily: "var(--font-heading)", display: "flex", alignItems: "center", gap: 6 }}>
             <Users size={14} style={{ color: "var(--accent)" }} /> By Client
           </h3>
-          <span style={{ fontSize: 11, color: "var(--foreground-muted)" }}>Lifetime figures, highest earning first</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 11, color: "var(--foreground-muted)" }}>Lifetime figures, highest earning first</span>
+            <button
+              className="btn btn-ghost no-print"
+              style={{ fontSize: 11, padding: "4px 10px" }}
+              disabled={pdfBusy}
+              onClick={() => downloadPdf({ sections: ["clients"], heading: "Client Report", slug: "client-report" })}
+            >
+              <FileDown size={12} /> Client PDF
+            </button>
+          </div>
         </div>
         {byClient.length === 0 ? (
           <p style={{ fontSize: 12, color: "var(--foreground-muted)" }}>No clients yet.</p>
@@ -311,6 +402,68 @@ export function AnalyticsDashboard() {
                       {formatCurrency(byClient.reduce((s, c) => s + c[k], 0))}
                     </td>
                   ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+
+      {/* Per team member */}
+      <div className="card">
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+          <h3 style={{ fontSize: 13, fontWeight: 600, fontFamily: "var(--font-heading)", display: "flex", alignItems: "center", gap: 6 }}>
+            <UserCog size={14} style={{ color: "var(--accent)" }} /> By Team Member
+          </h3>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 11, color: "var(--foreground-muted)" }}>What each person is owed against what they were engaged for</span>
+            <button
+              className="btn btn-ghost no-print"
+              style={{ fontSize: 11, padding: "4px 10px" }}
+              disabled={pdfBusy}
+              onClick={() => downloadPdf({ sections: ["team"], heading: "Team Report", slug: "team-report" })}
+            >
+              <FileDown size={12} /> Team PDF
+            </button>
+          </div>
+        </div>
+        {byTeam.length === 0 ? (
+          <p style={{ fontSize: 12, color: "var(--foreground-muted)" }}>No team members yet.</p>
+        ) : (
+          <div className="an-scroll" style={{ border: "1px solid var(--border)", borderRadius: "var(--radius-md)", overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, minWidth: 620 }}>
+              <thead>
+                <tr style={{ background: "var(--surface)", borderBottom: "1px solid var(--border)" }}>
+                  {["Person", "Type", "Engagements", "Agreed", "Paid", "Still Owed", "Settled"].map((h, i) => (
+                    <th key={h} style={{ padding: "9px 12px", textAlign: i === 0 ? "left" : "right", fontSize: 10, fontWeight: 700, color: "var(--foreground-muted)", textTransform: "uppercase", letterSpacing: "0.05em", whiteSpace: "nowrap" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {byTeam.map((m) => (
+                  <tr key={m.personId} style={{ borderBottom: "1px solid var(--border-subtle)" }}>
+                    <td style={{ padding: "10px 12px" }}>
+                      <p style={{ fontWeight: 600, color: "var(--foreground)" }}>{m.name}</p>
+                      <p style={{ fontSize: 10.5, color: "var(--foreground-muted)" }}>{m.role}</p>
+                    </td>
+                    <td style={{ padding: "10px 12px", textAlign: "right", color: "var(--foreground-muted)", textTransform: "capitalize" }}>{m.type}</td>
+                    <td style={{ padding: "10px 12px", textAlign: "right", color: "var(--foreground-muted)" }}>{m.engagements}</td>
+                    <td style={{ padding: "10px 12px", textAlign: "right", color: "var(--foreground-2)" }}>{formatCurrency(m.agreed)}</td>
+                    <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700, color: "#00965C" }}>{formatCurrency(m.paid)}</td>
+                    <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: m.owed > 0 ? 700 : 400, color: m.owed > 0 ? "#D14F4F" : "var(--foreground-muted)" }}>{formatCurrency(m.owed)}</td>
+                    <td style={{ padding: "10px 12px", textAlign: "right", color: "var(--foreground-muted)" }}>{m.settledPct}%</td>
+                  </tr>
+                ))}
+                <tr style={{ background: "var(--surface)" }}>
+                  <td colSpan={2} style={{ padding: "10px 12px", fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--foreground-muted)" }}>Total</td>
+                  <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700 }}>{byTeam.reduce((a, m) => a + m.engagements, 0)}</td>
+                  {(["agreed", "paid", "owed"] as const).map((k) => (
+                    <td key={k} style={{ padding: "10px 12px", textAlign: "right", fontWeight: 800, fontFamily: "var(--font-heading)", color: k === "paid" ? "#00965C" : k === "owed" ? "#D14F4F" : "var(--foreground)" }}>
+                      {formatCurrency(byTeam.reduce((a, m) => a + m[k], 0))}
+                    </td>
+                  ))}
+                  <td />
                 </tr>
               </tbody>
             </table>

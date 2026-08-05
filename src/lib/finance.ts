@@ -324,6 +324,46 @@ export function clientFinancials(
     .sort((a, b) => b.received - a.received);
 }
 
+// ── Per team member ──────────────────────────────────────────────────────── //
+
+export interface TeamMemberFinancials {
+  personId: string;
+  name: string;
+  role: string;
+  type: string;
+  /** Engagements that still stand. */
+  engagements: number;
+  agreed: number;
+  paid: number;
+  owed: number;
+  settledPct: number;
+}
+
+export function teamFinancials(
+  people: { $id: string; name: string; role?: string; type: string }[],
+  engagements: Engagement[],
+  payouts: Transaction[]
+): TeamMemberFinancials[] {
+  return people
+    .map((p) => {
+      const own = engagements.filter((e) => e.person_id === p.$id);
+      const paidTo = payouts.filter((t) => t.person_id === p.$id);
+      const fin = calcPersonFinancials(own, paidTo);
+      return {
+        personId: p.$id,
+        name: p.name,
+        role: p.role || "—",
+        type: p.type,
+        engagements: own.filter((e) => e.status !== "cancelled").length,
+        agreed: fin.agreed,
+        paid: fin.paid,
+        owed: fin.due,
+        settledPct: fin.settledPct,
+      };
+    })
+    .sort((a, b) => b.agreed - a.agreed);
+}
+
 /** Total still owed across everyone — the company's payable position. */
 export function totalPayable(
   engagements: Engagement[],
