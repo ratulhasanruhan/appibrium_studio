@@ -21,9 +21,9 @@ export async function generatePDF(html: string): Promise<Buffer> {
 
   // domcontentloaded fires before linked stylesheets and webfonts arrive, so
   // Chrome would rasterise with fallback metrics and silently drop glyphs the
-  // default font lacks — the taka sign among them. Wait for the network to
-  // settle and for fonts to finish loading before printing.
-  await page.setContent(html, { waitUntil: "networkidle0" });
+  // default font lacks — the taka sign among them. "load" waits for the
+  // stylesheet; fonts.ready then waits for the faces it pulls in.
+  await page.setContent(html, { waitUntil: "load" });
   await page.evaluate(() => (document as Document & { fonts?: FontFaceSet }).fonts?.ready);
 
   const pdf = await page.pdf({
