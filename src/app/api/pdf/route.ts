@@ -1,8 +1,17 @@
 import { NextResponse } from "next/server";
 import { generatePDF } from "@/services/pdf";
+import { getCaller } from "@/lib/appwrite/server";
+import { ADMIN_ROLES } from "@/utils";
 
 export async function POST(request: Request) {
   try {
+    // Rendering HTML in headless Chrome is expensive, so this is staff only —
+    // otherwise anyone could point it at arbitrary markup and burn compute.
+    const caller = await getCaller(request);
+    if (!caller || !caller.labels.some((l) => ADMIN_ROLES.includes(l.toLowerCase()))) {
+      return NextResponse.json({ error: "Not authorised." }, { status: 401 });
+    }
+
     const { html, filename } = await request.json();
 
     if (!html) {

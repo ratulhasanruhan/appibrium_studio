@@ -1,4 +1,4 @@
-import { account } from "@/lib/appwrite/client";
+import { authHeader } from "@/lib/auth-client";
 import type { Client, Project, Invoice, Proposal, FileMetadata, Notification } from "@/types";
 
 export interface PortalData {
@@ -15,16 +15,6 @@ export interface PortalData {
 const EMPTY: PortalData = {
   client: null, projects: [], invoices: [], proposals: [], files: [], notifications: [],
 };
-
-/**
- * Short-lived token proving to our API who the browser is signed in as.
- * Collections are staff-only, so client users reach their data through the
- * portal API rather than querying Appwrite directly.
- */
-async function authHeader(): Promise<Record<string, string>> {
-  const { jwt } = await account.createJWT();
-  return { Authorization: `Bearer ${jwt}`, "Content-Type": "application/json" };
-}
 
 export async function getPortalData(): Promise<PortalData> {
   try {

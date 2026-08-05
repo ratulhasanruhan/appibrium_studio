@@ -21,6 +21,7 @@ import {
 import { buildFinancialReportHtml, type ReportSection } from "./report-html";
 import { getPeople } from "@/services/people";
 import { getCompanyDetails } from "@/services/settings";
+import { authHeader } from "@/lib/auth-client";
 import { downloadCsv, type CsvRow } from "@/lib/csv";
 import { formatCurrency, formatDate } from "@/utils";
 import type { Invoice, Project, Client, Transaction, Engagement, Person } from "@/types";
@@ -143,7 +144,7 @@ export function AnalyticsDashboard() {
       });
       const res = await fetch("/api/pdf", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await authHeader(),
         body: JSON.stringify({ html, filename: `financial-report-${new Date().toISOString().slice(0, 10)}.pdf` }),
       });
       if (!res.ok) throw new Error(await res.text());
