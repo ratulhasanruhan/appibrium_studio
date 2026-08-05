@@ -137,6 +137,83 @@ export function calcPersonFinancials(
   };
 }
 
+// ── Company-wide position ────────────────────────────────────────────────── //
+
+export interface CompanyFinancials {
+  /** Collected against paid invoices. */
+  received: number;
+  /** Money in that was not booked through an invoice. */
+  otherIncome: number;
+  totalIncome: number;
+  /** Outflows tagged to a team member. */
+  teamPaid: number;
+  /** Every other outflow — tools, hosting, rent, and so on. */
+  otherExpenses: number;
+  totalExpenses: number;
+  /** Actual cash position: everything in, minus everything out. */
+  onHand: number;
+  /** Invoiced and awaiting payment. */
+  receivable: number;
+  /** Sum of budgets across live projects. */
+  agreedProjectValue: number;
+  /** Agreed work not yet collected. */
+  stillToCollect: number;
+  /** Committed to the team across standing engagements. */
+  teamEngaged: number;
+  /** Still to hand over to the team. */
+  teamOwed: number;
+  /** Where you land once everything owed to you is in and the team is paid. */
+  finalStanding: number;
+}
+
+/**
+ * The whole business in one shape.
+ *
+ * Team payouts are ordinary expenses tagged with a person, so they are split
+ * out rather than counted twice: teamPaid + otherExpenses === totalExpenses.
+ */
+export function calcCompanyFinancials(
+  invoices: Invoice[],
+  transactions: Transaction[],
+  projects: { budget?: number; status?: string }[],
+  engagements: Engagement[]
+): CompanyFinancials {
+  const received = sum(invoices.filter((i) => i.status === "paid"), (i) => i.total);
+  const billed = sum(invoices.filter(isCollectable), (i) => i.total);
+
+  const outflows = transactions.filter(isOutflow);
+  const teamPaid = sum(outflows.filter((t) => t.person_id), (t) => t.amount);
+  const otherExpenses = sum(outflows.filter((t) => !t.person_id), (t) => t.amount);
+
+  // Income already represented by a paid invoice must not be added again.
+  const otherIncome = sum(
+    transactions.filter((t) => !isOutflow(t) && !t.invoice_id),
+    (t) => t.amount
+  );
+
+  const liveProjects = projects.filter((p) => p.status !== "cancelled");
+  const agreedProjectValue = sum(liveProjects, (p) => p.budget || 0);
+
+  const teamEngaged = sum(engagements.filter((e) => e.status !== "cancelled"), (e) => e.agreed_amount);
+
+  const totalIncome = received + otherIncome;
+  const totalExpenses = teamPaid + otherExpenses;
+  const onHand = totalIncome - totalExpenses;
+  const receivable = Math.max(billed - received, 0);
+  const teamOwed = Math.max(teamEngaged - teamPaid, 0);
+
+  return {
+    received, otherIncome, totalIncome,
+    teamPaid, otherExpenses, totalExpenses,
+    onHand,
+    receivable,
+    agreedProjectValue,
+    stillToCollect: Math.max(agreedProjectValue - received, 0),
+    teamEngaged, teamOwed,
+    finalStanding: onHand + receivable - teamOwed,
+  };
+}
+
 /** Total still owed across everyone — the company's payable position. */
 export function totalPayable(
   engagements: Engagement[],

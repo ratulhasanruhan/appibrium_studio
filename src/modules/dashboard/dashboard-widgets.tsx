@@ -26,9 +26,12 @@ import { getProposals } from "@/services/proposals";
 import { getClients } from "@/services/crm";
 import { getProjects } from "@/services/projects";
 import { getPortalData } from "@/services/portal";
+import { getTransactions } from "@/services/transactions";
+import { getEngagements } from "@/services/engagements";
+import { calcCompanyFinancials } from "@/lib/finance";
 import { account } from "@/lib/appwrite/client";
 import { hasAdminRole } from "@/utils";
-import type { Invoice, Proposal, Client, Project } from "@/types";
+import type { Invoice, Proposal, Client, Project, Transaction, Engagement } from "@/types";
 import Link from "next/link";
 
 // ─── Stat Card ──────────────────────────────────────────────────────── //
@@ -174,6 +177,8 @@ export function DashboardWidgets() {
   const [projects, setProjects]   = useState<Project[]>([]);
   const [loading, setLoading]     = useState(true);
   const [isStaff, setIsStaff]     = useState(true);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [engagements, setEngagements]   = useState<Engagement[]>([]);
 
   useEffect(() => {
     async function load() {
@@ -193,16 +198,20 @@ export function DashboardWidgets() {
           return;
         }
 
-        const [inv, prop, cli, proj] = await Promise.all([
+        const [inv, prop, cli, proj, txs, engs] = await Promise.all([
           getInvoices(),
           getProposals(),
           getClients(),
           getProjects(),
+          getTransactions(),
+          getEngagements(),
         ]);
         setInvoices(inv);
         setProposals(prop);
         setClients(cli);
         setProjects(proj);
+        setTransactions(txs);
+        setEngagements(engs);
       } catch (err) {
         console.error("[Dashboard] load error:", err);
       } finally {
@@ -218,6 +227,7 @@ export function DashboardWidgets() {
   const pendingProposals = proposals.filter((p) => p.status === "sent" || p.status === "viewed" || p.status === "review").length;
   const pendingInvoices = invoices.filter((i) => i.status === "sent" || i.status === "overdue").length;
   const chartData       = buildMonthBuckets(invoices);
+  const co              = calcCompanyFinancials(invoices, transactions, projects, engagements);
 
   // Top clients by invoice revenue
   const clientRevenueMap = new Map<string, { name: string; revenue: number; invoices: number }>();
@@ -282,6 +292,102 @@ export function DashboardWidgets() {
         <StatCard id="stat-pending-proposals" label={isStaff ? "Pending Proposals" : "Open Proposals"} value={String(pendingProposals)}      icon={FileText}   loading={loading} />
         <StatCard id="stat-pending-invoices"  label="Pending Invoices"  value={String(pendingInvoices)}       icon={Receipt}    loading={loading} />
       </div>
+
+      {/* ─── Financial Position (staff only — this is the agency's own book) ─── */}
+      {isStaff && !loading && (
+        <div className="card" style={{ marginBottom: 18 }}>
+          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
+            <h2 style={{ fontSize: 14, fontWeight: 700, fontFamily: "var(--font-heading)" }}>Financial Position</h2>
+            <span style={{ fontSize: 11, color: "var(--foreground-muted)" }}>Money in and out, and where you stand once everything settles</span>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 12 }}>
+            {/* Money in */}
+            <div style={{ padding: "14px 16px", borderRadius: "var(--radius-md)", background: "var(--surface)", border: "1px solid var(--border)" }}>
+              <p style={{ fontSize: 9.5, fontWeight: 700, color: "#00965C", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>Money In</p>
+              {[
+                { k: "Invoices paid", v: co.received },
+                { k: "Other income", v: co.otherIncome },
+              ].map((r) => (
+                <div key={r.k} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "3px 0", color: "var(--foreground-2)" }}>
+                  <span style={{ color: "var(--foreground-muted)" }}>{r.k}</span>
+                  <span style={{ fontWeight: 600 }}>{formatCurrency(r.v)}</span>
+                </div>
+              ))}
+              <div style={{ height: 1, background: "var(--border)", margin: "8px 0 7px" }} />
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                <span style={{ fontWeight: 600, color: "var(--foreground)" }}>Total in</span>
+                <span style={{ fontFamily: "var(--font-heading)", fontWeight: 800, color: "#00965C" }}>{formatCurrency(co.totalIncome)}</span>
+              </div>
+            </div>
+
+            {/* Money out */}
+            <div style={{ padding: "14px 16px", borderRadius: "var(--radius-md)", background: "var(--surface)", border: "1px solid var(--border)" }}>
+              <p style={{ fontSize: 9.5, fontWeight: 700, color: "#D14F4F", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 10 }}>Money Out</p>
+              {[
+                { k: "Paid to team", v: co.teamPaid },
+                { k: "Other expenses", v: co.otherExpenses },
+              ].map((r) => (
+                <div key={r.k} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "3px 0", color: "var(--foreground-2)" }}>
+                  <span style={{ color: "var(--foreground-muted)" }}>{r.k}</span>
+                  <span style={{ fontWeight: 600 }}>{formatCurrency(r.v)}</span>
+                </div>
+              ))}
+              <div style={{ height: 1, background: "var(--border)", margin: "8px 0 7px" }} />
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                <span style={{ fontWeight: 600, color: "var(--foreground)" }}>Total out</span>
+                <span style={{ fontFamily: "var(--font-heading)", fontWeight: 800, color: "#D14F4F" }}>{formatCurrency(co.totalExpenses)}</span>
+              </div>
+            </div>
+
+            {/* Position */}
+            <div style={{ padding: "14px 16px", borderRadius: "var(--radius-md)", background: "linear-gradient(135deg,#E6FAF3 0%,#F4FBF7 100%)", border: "1px solid #B3E8D2" }}>
+              <p style={{ fontSize: 9.5, fontWeight: 700, color: "#0D2317", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>Position</p>
+              <p style={{ fontSize: 10.5, color: "#4A6B58" }}>Cash on hand</p>
+              <p style={{ fontFamily: "var(--font-heading)", fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", color: co.onHand >= 0 ? "#00965C" : "#D14F4F", marginBottom: 10 }}>
+                {formatCurrency(co.onHand)}
+              </p>
+              <div style={{ height: 1, background: "#B3E8D2", marginBottom: 8 }} />
+              <p style={{ fontSize: 10.5, color: "#4A6B58" }} title="Cash on hand, plus invoices still to be paid to you, minus what you still owe the team">
+                Final standing
+              </p>
+              <p style={{ fontFamily: "var(--font-heading)", fontSize: 20, fontWeight: 800, letterSpacing: "-0.02em", color: co.finalStanding >= 0 ? "#0D2317" : "#D14F4F" }}>
+                {formatCurrency(co.finalStanding)}
+              </p>
+            </div>
+          </div>
+
+          {/* Commitments on both sides */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 12, marginTop: 12 }}>
+            <div style={{ padding: "12px 16px", borderRadius: "var(--radius-md)", background: "var(--background-alt)", border: "1px solid var(--border)" }}>
+              <p style={{ fontSize: 9.5, fontWeight: 700, color: "var(--foreground-muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>Client Side</p>
+              {[
+                { k: "Agreed project value", v: co.agreedProjectValue, c: "var(--foreground)" },
+                { k: "Invoiced, awaiting payment", v: co.receivable, c: "#B45309" },
+                { k: "Still to collect", v: co.stillToCollect, c: co.stillToCollect > 0 ? "#B45309" : "#00965C" },
+              ].map((r) => (
+                <div key={r.k} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "3px 0" }}>
+                  <span style={{ color: "var(--foreground-muted)" }}>{r.k}</span>
+                  <span style={{ fontWeight: 700, color: r.c }}>{formatCurrency(r.v)}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ padding: "12px 16px", borderRadius: "var(--radius-md)", background: "var(--background-alt)", border: "1px solid var(--border)" }}>
+              <p style={{ fontSize: 9.5, fontWeight: 700, color: "var(--foreground-muted)", textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 8 }}>Team Side</p>
+              {[
+                { k: "Engaged budget", v: co.teamEngaged, c: "var(--foreground)" },
+                { k: "Already paid out", v: co.teamPaid, c: "#00965C" },
+                { k: "Still to give the team", v: co.teamOwed, c: co.teamOwed > 0 ? "#D14F4F" : "#00965C" },
+              ].map((r) => (
+                <div key={r.k} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, padding: "3px 0" }}>
+                  <span style={{ color: "var(--foreground-muted)" }}>{r.k}</span>
+                  <span style={{ fontWeight: 700, color: r.c }}>{formatCurrency(r.v)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── Chart + Activity ─── */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", gap: 14 }}>
