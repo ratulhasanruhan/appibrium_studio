@@ -214,6 +214,116 @@ export function calcCompanyFinancials(
   };
 }
 
+// ── Time series ──────────────────────────────────────────────────────────── //
+
+/**
+ * When money from an invoice actually landed. paid_at is the truth once set;
+ * older records fall back to the issue date.
+ */
+export function invoiceIncomeDate(invoice: Invoice): string {
+  return invoice.paid_at || invoice.issue_date || invoice.$createdAt;
+}
+
+export interface MonthPoint {
+  /** e.g. "Aug 26" */
+  label: string;
+  /** e.g. "2026-08" — stable key for sorting and export */
+  key: string;
+  income: number;
+  expenses: number;
+  net: number;
+}
+
+function monthKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/** Builds a continuous month-by-month series, including months with no activity. */
+export function monthlySeries(
+  invoices: Invoice[],
+  transactions: Transaction[],
+  months: number,
+  now: Date = new Date()
+): MonthPoint[] {
+  const buckets = new Map<string, MonthPoint>();
+  for (let i = months - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    buckets.set(monthKey(d), {
+      key: monthKey(d),
+      label: d.toLocaleString("default", { month: "short", year: "2-digit" }),
+      income: 0, expenses: 0, net: 0,
+    });
+  }
+
+  for (const inv of invoices) {
+    if (inv.status !== "paid") continue;
+    const b = buckets.get(monthKey(new Date(invoiceIncomeDate(inv))));
+    if (b) b.income += inv.total || 0;
+  }
+  for (const t of transactions) {
+    const b = buckets.get(monthKey(new Date(t.transaction_date || t.$createdAt)));
+    if (!b) continue;
+    if (isOutflow(t)) b.expenses += t.amount || 0;
+    else if (!t.invoice_id) b.income += t.amount || 0; // invoice income already counted
+  }
+
+  const out = Array.from(buckets.values());
+  out.forEach((b) => { b.net = b.income - b.expenses; });
+  return out;
+}
+
+/** Keeps only records falling inside the last N months. */
+export function withinMonths<T>(items: T[], dateOf: (item: T) => string, months: number, now: Date = new Date()): T[] {
+  const from = new Date(now.getFullYear(), now.getMonth() - (months - 1), 1).getTime();
+  return items.filter((i) => {
+    const t = new Date(dateOf(i)).getTime();
+    return !Number.isNaN(t) && t >= from;
+  });
+}
+
+// ── Per client ───────────────────────────────────────────────────────────── //
+
+export interface ClientFinancials {
+  clientId: string;
+  name: string;
+  projects: number;
+  /** Sum of budgets across their live projects. */
+  agreed: number;
+  /** Issued to them, excluding drafts and cancelled. */
+  invoiced: number;
+  received: number;
+  /** Invoiced but unpaid. */
+  outstanding: number;
+  /** Agreed work not yet collected. */
+  stillToCollect: number;
+}
+
+export function clientFinancials(
+  clients: { $id: string; name: string }[],
+  invoices: Invoice[],
+  projects: { $id: string; client_id: string; budget?: number; status?: string }[]
+): ClientFinancials[] {
+  return clients
+    .map((c) => {
+      const own = invoices.filter((i) => i.client_id === c.$id);
+      const proj = projects.filter((p) => p.client_id === c.$id && p.status !== "cancelled");
+      const invoiced = sum(own.filter(isCollectable), (i) => i.total);
+      const received = sum(own.filter((i) => i.status === "paid"), (i) => i.total);
+      const agreed = sum(proj, (p) => p.budget || 0);
+      return {
+        clientId: c.$id,
+        name: c.name,
+        projects: proj.length,
+        agreed,
+        invoiced,
+        received,
+        outstanding: Math.max(invoiced - received, 0),
+        stillToCollect: Math.max(agreed - received, 0),
+      };
+    })
+    .sort((a, b) => b.received - a.received);
+}
+
 /** Total still owed across everyone — the company's payable position. */
 export function totalPayable(
   engagements: Engagement[],
