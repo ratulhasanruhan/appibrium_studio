@@ -27,8 +27,9 @@ export async function POST(request: Request) {
         "Content-Disposition": `attachment; filename="${filename || "document.pdf"}"`,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("PDF API endpoint error:", error);
-    return NextResponse.json({ error: error.message || "Failed to generate PDF." }, { status: 500 });
+    const message = error instanceof Error ? error.message : "Failed to generate PDF.";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
