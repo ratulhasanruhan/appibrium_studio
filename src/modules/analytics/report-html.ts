@@ -94,26 +94,28 @@ export function buildFinancialReportHtml(input: ReportInput): string {
 
   return `<!doctype html>
 <html><head><meta charset="utf-8">
-<link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
   @page { size: A4; margin: 14mm 12mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #1E3A27; font-size: 11px; }
+  /* Jost and Plus Jakarta Sans lack U+09F3 (৳), so Noto Sans Bengali is kept
+     in every stack as a fallback — without it amounts print unlabelled. */
+  body { font-family: 'Plus Jakarta Sans', 'Noto Sans Bengali', system-ui, sans-serif; color: #1E3A27; font-size: 11px; }
 
   .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; }
-  .title { font-family: 'Jost', sans-serif; font-size: 22px; font-weight: 800; color: #0D2317; letter-spacing: -0.02em; }
+  .title { font-family: 'Jost', 'Noto Sans Bengali', sans-serif; font-size: 22px; font-weight: 800; color: #0D2317; letter-spacing: -0.02em; }
   .eyebrow { font-size: 9px; font-weight: 700; color: #00965C; text-transform: uppercase; letter-spacing: 0.09em; }
   .meta { text-align: right; font-size: 10px; color: #6B8F7C; line-height: 1.7; }
-  .meta strong { color: #0D2317; font-family: 'Jost', sans-serif; font-size: 11.5px; }
+  .meta strong { color: #0D2317; font-family: 'Jost', 'Noto Sans Bengali', sans-serif; font-size: 11.5px; }
   .rule { height: 2.5px; margin: 12px 0 18px; background: linear-gradient(90deg,#00B872 0%,#00E090 55%,transparent 100%); }
 
-  h2 { font-family: 'Jost', sans-serif; font-size: 12px; font-weight: 700; color: #0D2317;
+  h2 { font-family: 'Jost', 'Noto Sans Bengali', sans-serif; font-size: 12px; font-weight: 700; color: #0D2317;
        margin: 18px 0 8px; padding-left: 8px; border-left: 3px solid #00B872; page-break-after: avoid; }
 
   .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
   .card { border: 1px solid #E3EEE8; border-radius: 8px; padding: 10px 12px; background: #FAFCFA; }
   .card .k { font-size: 8.5px; font-weight: 700; color: #6B8F7C; text-transform: uppercase; letter-spacing: 0.07em; }
-  .card .v { font-family: 'Jost', sans-serif; font-size: 15px; font-weight: 800; margin-top: 4px; letter-spacing: -0.02em; }
+  .card .v { font-family: 'Jost', 'Noto Sans Bengali', sans-serif; font-size: 15px; font-weight: 800; margin-top: 4px; letter-spacing: -0.02em; }
 
   .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .box { border: 1px solid #E3EEE8; border-radius: 8px; padding: 10px 12px; }
@@ -129,7 +131,7 @@ export function buildFinancialReportHtml(input: ReportInput): string {
   tr:last-child td { border-bottom: none; }
   .r { text-align: right; }
   .sub { display: block; font-size: 8.5px; color: #9CB4A8; }
-  .total td { background: #F6FBF8; font-weight: 800; font-family: 'Jost', sans-serif; }
+  .total td { background: #F6FBF8; font-weight: 800; font-family: 'Jost', 'Noto Sans Bengali', sans-serif; }
   .empty { font-size: 10.5px; color: #6B8F7C; padding: 6px 0; }
   table, .cards, .cols { page-break-inside: avoid; }
 
