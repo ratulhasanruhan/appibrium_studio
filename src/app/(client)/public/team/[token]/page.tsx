@@ -126,7 +126,7 @@ export default function TeamReportPage() {
           {engagements.length === 0 ? (
             <p className="tr-empty">No assignments recorded yet.</p>
           ) : (
-            <table className="tr-table">
+            <div className="tr-scroll"><table className="tr-table">
               <thead>
                 <tr><th>Work</th><th>Project</th><th className="r">Budget</th><th className="r">Paid</th><th className="r">Due</th></tr>
               </thead>
@@ -145,14 +145,14 @@ export default function TeamReportPage() {
                   );
                 })}
               </tbody>
-            </table>
+            </table></div>
           )}
 
           <h2 className="tr-h2">Payments Received</h2>
           {payouts.length === 0 ? (
             <p className="tr-empty">No payments recorded yet.</p>
           ) : (
-            <table className="tr-table">
+            <div className="tr-scroll"><table className="tr-table">
               <thead>
                 <tr><th>Description</th><th>Project</th><th>Date</th><th className="r">Amount</th></tr>
               </thead>
@@ -170,7 +170,7 @@ export default function TeamReportPage() {
                   <td className="r">{formatCurrency(fin.paid, currency)}</td>
                 </tr>
               </tbody>
-            </table>
+            </table></div>
           )}
 
           <footer className="tr-foot">
@@ -182,7 +182,8 @@ export default function TeamReportPage() {
 
       <style>{`
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        .tr-page { min-height: 100vh; background: #EEF5F0; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
+        .tr-page { min-height: 100vh; background: #EEF5F0; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; overflow-x: hidden; }
+        .tr-scroll { margin: 0; }
         .tr-bar { position: sticky; top: 0; z-index: 100; display: flex; align-items: center; justify-content: space-between; padding: 0 32px; height: 56px; background: #0D2317; box-shadow: 0 2px 12px rgba(0,0,0,0.15); }
         .tr-print { display: flex; align-items: center; gap: 5px; padding: 6px 14px; border-radius: 6px; background: #00E090; border: none; color: #0D2317; font-size: 12px; font-weight: 700; cursor: pointer; font-family: 'Jost', sans-serif; }
         .tr-main { padding: 36px 20px 60px; }
@@ -221,6 +222,27 @@ export default function TeamReportPage() {
 
         .tr-foot { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-top: 34px; padding-top: 12px; border-top: 1px solid #E8F2EC; font-size: 10px; color: #9CB4A8; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        /* ─── Mobile ─── */
+        @media (max-width: 640px) {
+          .tr-bar { padding: 0 12px; height: 52px; }
+          .tr-bar img { height: 20px; }
+          .tr-main { padding: 14px 10px 40px; }
+          .tr-sheet { border-radius: 8px; padding: 22px 16px 20px; }
+
+          .tr-head { flex-direction: column; gap: 10px; }
+          .tr-co { text-align: left; }
+          .tr-name { font-size: 19px; }
+          .tr-stats { grid-template-columns: 1fr; gap: 8px; }
+          .tr-stat { padding: 11px 14px; display: flex; align-items: center; justify-content: space-between; }
+          .tr-stat-v { margin-top: 0; font-size: 17px; }
+
+          /* wide tables scroll inside their own box instead of the page */
+          .tr-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+          .tr-table { min-width: 460px; }
+          .tr-table th, .tr-table td { padding: 9px 10px; font-size: 12px; }
+          .tr-foot { flex-direction: column; align-items: flex-start; gap: 5px; }
+        }
 
         @media print {
           @page { size: A4; margin: 14mm; }

@@ -701,6 +701,30 @@ function PublicProposalPortalContent() {
 
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
+        /* ─── Mobile ─── */
+        @media (max-width: 640px) {
+          .portal-header { padding: 0 14px; height: 52px; flex-wrap: wrap; }
+          .portal-header img { height: 20px; }
+          .portal-main { padding: 14px 10px 40px; }
+          .proposal-doc { border-radius: 8px; padding: 22px 18px 26px !important; }
+          .proposal-body { font-size: 13px; }
+          .proposal-body h1 { font-size: 20px !important; }
+          .proposal-body h2 { font-size: 15px !important; }
+
+          .pb-stats { grid-template-columns: 1fr 1fr; gap: 8px; }
+          .pb-cards { grid-template-columns: 1fr; }
+          .pb-work  { grid-template-columns: 1fr; gap: 10px; }
+          .pb-work-item { padding: 13px 14px; }
+          .pb-work-media { width: 52px; height: 52px; }
+
+          .pb-step { gap: 10px; }
+          .pb-step-head { flex-direction: column; gap: 2px; }
+
+          .pb-table th, .pb-table td { padding: 9px 12px; font-size: 12px; }
+          .pb-total { flex-direction: column; align-items: flex-start; gap: 6px; }
+          .pb-total-amount { font-size: 20px; }
+        }
+
         @media print {
           @page { size: A4; margin: 20mm 15mm 20mm 15mm; }
 
@@ -754,6 +778,37 @@ function PublicProposalPortalContent() {
           .pb-stats, .pb-cards, .pb-work, .pb-steps, .pb-faq {
             page-break-inside: auto;
           }
+
+          /* Selected Work is a reference list, not the argument — in print it
+             collapses to a compact three-up grid so nine projects cost a few
+             centimetres rather than most of a page. */
+          .pb-work {
+            display: grid !important;
+            grid-template-columns: repeat(3, 1fr) !important;
+            gap: 7px !important;
+            margin: 10px 0 14px !important;
+          }
+          .pb-work-item {
+            display: block !important;
+            padding: 9px 10px !important;
+            border-radius: 7px !important;
+            box-shadow: none !important;
+          }
+          .pb-work-media {
+            width: 30px !important; height: 30px !important;
+            padding: 4px !important; border-radius: 7px !important;
+            box-shadow: none !important; margin-bottom: 6px !important;
+          }
+          .pb-work-cat  { font-size: 7.5px !important; letter-spacing: 0.06em !important; margin-bottom: 2px !important; }
+          .pb-work-body h4 { font-size: 10.5px !important; margin-bottom: 3px !important; }
+          .pb-work-item p {
+            font-size: 8.5px !important; line-height: 1.4 !important;
+            display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+            overflow: hidden;
+          }
+          .pb-work-item .pb-chips-sm { margin-top: 5px !important; gap: 3px !important; }
+          .pb-work-item .pb-chip { font-size: 7px !important; padding: 1px 5px !important; }
+          .pb-work-result { display: none !important; }
           .pb-total, .pb-step-num, .pb-chip, .pb-stat, .pb-work-item,
           .pb-cta, .pb-invoice, .pb-work-media, .pb-work-tag, .pb-table th {
             -webkit-print-color-adjust: exact; print-color-adjust: exact;

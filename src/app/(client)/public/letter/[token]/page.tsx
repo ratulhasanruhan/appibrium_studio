@@ -288,7 +288,7 @@ function PublicLetterContent() {
 
       <style>{`
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        .letter-portal { min-height: 100vh; background: #EEF5F0; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
+        .letter-portal { min-height: 100vh; background: #EEF5F0; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; overflow-x: hidden; }
 
         .lt-bar {
           position: sticky; top: 0; z-index: 100;
@@ -411,6 +411,35 @@ function PublicLetterContent() {
 
         .lt-watermark { display: none; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+        /* ─── Mobile ─── */
+        @media (max-width: 640px) {
+          .lt-bar { padding: 0 12px; height: auto; min-height: 52px; flex-wrap: wrap; gap: 8px; padding-top: 8px; padding-bottom: 8px; }
+          .lt-bar img { height: 20px; }
+          .lt-main { padding: 14px 10px 40px; }
+          .lt-sheet { border-radius: 8px; padding: 24px 18px 22px; }
+
+          .lt-head { flex-direction: column; gap: 12px; }
+          .lt-head-meta { text-align: left; }
+          .lt-logo { height: 34px; }
+
+          .lt-ref { flex-direction: column; gap: 3px; }
+          .lt-subject { font-size: 15px; margin: 20px 0 14px; }
+          .lt-body { font-size: 12.5px; line-height: 1.75; }
+          .lt-clause { font-size: 12.5px; }
+
+          .lt-table td { padding: 8px 10px; font-size: 12px; }
+          .lt-table td:first-child { width: 45%; }
+
+          /* signatures stack rather than squeezing side by side */
+          .lt-signs { flex-direction: column; gap: 26px; margin-top: 34px; }
+          .lt-sign { min-width: 0; width: 100%; max-width: 260px; }
+
+          .lt-auth { padding: 16px; }
+          .lt-auth form { flex-direction: column; }
+          .lt-auth form > button { width: 100%; justify-content: center; }
+          .lt-foot { flex-direction: column; align-items: flex-start; gap: 6px; }
+        }
 
         @media print {
           @page { size: A4; margin: 0; }

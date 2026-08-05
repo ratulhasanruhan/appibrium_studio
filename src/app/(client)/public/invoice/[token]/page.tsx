@@ -305,7 +305,7 @@ export default function PublicInvoicePortal() {
       <style>{`
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
-        .invoice-portal { min-height: 100vh; background: #EEF5F0; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; }
+        .invoice-portal { min-height: 100vh; background: #EEF5F0; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; overflow-x: hidden; }
 
         .inv-header {
           position: sticky; top: 0; z-index: 100;
@@ -436,6 +436,45 @@ export default function PublicInvoicePortal() {
           padding: 14px 40px;
           background: #F6FBF8; border-top: 1px solid #E8F2EC;
           font-size: 11px; color: #6B8F7C;
+        }
+
+        /* ─── Mobile ─── */
+        @media (max-width: 640px) {
+          .inv-header { padding: 0 14px; height: 52px; }
+          .inv-header img { height: 20px; }
+          .inv-main { padding: 14px 10px 40px; }
+          .invoice-doc { border-radius: 8px; }
+
+          .inv-doc-header { flex-direction: column; align-items: flex-start; gap: 14px; padding: 20px 18px 16px; }
+          .inv-doc-header > div:last-child { text-align: left !important; align-items: flex-start !important; }
+          .inv-doc-header img { margin-left: 0 !important; height: 34px !important; }
+
+          /* four columns of meta do not fit a phone — go two-up */
+          .inv-strip { grid-template-columns: 1fr 1fr; padding: 0 18px; }
+          .inv-strip-item { border-right: none; padding: 12px 0 !important; }
+          .inv-strip-item:nth-child(odd) { padding-right: 12px !important; }
+          .inv-strip-item:not(:first-child) { padding-left: 0 !important; }
+          .inv-strip-item:nth-child(-n+2) { border-bottom: 1px solid #E8F2EC; }
+
+          .invoice-doc h1 { font-size: 16px !important; }
+          .invoice-doc > div[style*="24px 40px 0"] { padding: 18px 18px 0 !important; }
+
+          /* line items: drop unit price, keep qty x amount readable */
+          .inv-table { font-size: 12px; }
+          .inv-table th:nth-child(3), .inv-table td:nth-child(3) { display: none; }
+          .inv-table th, .inv-table td { padding: 9px 6px; }
+          .inv-table th:first-child, .inv-table td:first-child { padding-left: 0; }
+
+          .inv-totals-wrap { padding: 4px 18px 18px; }
+          .inv-totals { min-width: 0; width: 100%; }
+
+          .payment-methods { grid-template-columns: 1fr; gap: 0; }
+          .payment-method:not(:last-child) { border-right: none; border-bottom: 1px solid #EDF6F1; padding-right: 0; padding-bottom: 12px; margin-bottom: 4px; }
+          .payment-card-header { flex-direction: column; align-items: flex-start; gap: 4px; }
+          .payment-row { gap: 8px; }
+          .payment-row-value { font-size: 10.5px; }
+
+          .inv-doc-footer { flex-direction: column; align-items: flex-start; gap: 6px; padding: 14px 18px; }
         }
 
         /* PDF / Print */

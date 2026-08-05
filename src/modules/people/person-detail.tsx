@@ -3,11 +3,15 @@
 import React, { useState, useEffect } from "react";
 import {
   ArrowLeft, Loader2, AlertCircle, Plus, X, Briefcase,
-  Wallet, TrendingUp, PiggyBank, Trash2, Link as LinkIcon, FileText, Copy, Check,
+  Wallet, TrendingUp, PiggyBank, Trash2, Link as LinkIcon, FileText, Copy, Check, FileSignature,
 } from "lucide-react";
 import Link from "next/link";
 import { getPerson, updatePerson } from "@/services/people";
-import { getEngagements, createEngagement, deleteEngagement } from "@/services/engagements";
+import { getEngagements, createEngagement, updateEngagement, deleteEngagement } from "@/services/engagements";
+import { createLetter, nextReference } from "@/services/letters";
+import { buildLetterBody, LETTER_TEMPLATES } from "@/modules/letters/letter-templates";
+import { SIGNATORIES } from "@/lib/company-profile";
+import { randomToken } from "@/utils";
 import { getTransactions } from "@/services/transactions";
 import { getProjects } from "@/services/projects";
 import { calcPersonFinancials } from "@/lib/finance";
@@ -45,6 +49,10 @@ export function PersonDetail({ id }: PersonDetailProps) {
   const [amount, setAmount] = useState(0);
   const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
   const [copied, setCopied] = useState(false);
+  const [docFor, setDocFor] = useState<Engagement | null>(null);
+  const [docType, setDocType] = useState("agreement");
+  const [makingDoc, setMakingDoc] = useState(false);
+  const [flash, setFlash] = useState("");
 
   /** Single loader used by both the initial effect and post-mutation refreshes. */
   async function load(signal?: { cancelled: boolean }) {
@@ -93,6 +101,76 @@ export function PersonDetail({ id }: PersonDetailProps) {
       load();
     } else {
       setError(res.error || "Failed to create engagement.");
+    }
+  }
+
+  /**
+   * Turns an engagement into a letterhead document on demand — never
+   * automatically. The chosen template is pre-filled from the engagement and
+   * linked back, so the row afterwards opens the stored document.
+   */
+  async function handleCreateDocument() {
+    if (!docFor || !person) return;
+    setMakingDoc(true);
+    const tpl = LETTER_TEMPLATES.find((t) => t.id === docType) ?? LETTER_TEMPLATES[0];
+    const signatory = SIGNATORIES[0];
+    const project = projects.find((p) => p.$id === docFor.project_id);
+    const amount = formatCurrency(docFor.agreed_amount, docFor.currency || currency);
+
+    // Each template reads different keys; supply the union and let it pick.
+    const body = buildLetterBody(tpl.id, {
+      party_name: person.name,
+      party_address: person.role || "",
+      effective_date: docFor.start_date || new Date().toISOString().slice(0, 10),
+      term: project ? `Duration of the ${project.name} engagement` : "As agreed between both parties",
+      value: amount,
+      scope: docFor.title,
+      payment_terms: "Payable in instalments against agreed milestones, by bank transfer or mobile banking.",
+      person: person.name,
+      role: person.role || "",
+      achievement: docFor.title,
+      occasion: project ? `on the ${project.name} project` : "",
+      candidate: person.name,
+      position: person.role || "",
+      salary: amount,
+      joining_date: docFor.start_date || "",
+      subject_name: person.name,
+      from_date: docFor.start_date || "",
+      to_date: docFor.end_date || "",
+      remarks: docFor.title,
+      statement: `${person.name} is engaged by Appibrium Technology Co. for ${docFor.title}.`,
+      body: `This document relates to ${docFor.title}.`,
+      salutation: `Dear ${person.name},`,
+    });
+
+    const reference = await nextReference(tpl.refPrefix);
+    const res = await createLetter({
+      type: tpl.id,
+      title: `${tpl.defaultTitle} — ${person.name}`,
+      reference,
+      recipient_name: person.name,
+      recipient_role: person.role,
+      body_html: body,
+      field_values: JSON.stringify({ engagement_id: docFor.$id, project_id: docFor.project_id }),
+      status: "draft",
+      public_token: randomToken("ltr"),
+      requires_signature: tpl.signByDefault,
+      show_company_signature: true,
+      signatory_name: signatory.name,
+      signatory_signature: signatory.signature,
+      signatory_title: signatory.title,
+      issue_date: new Date().toISOString().slice(0, 10),
+    } as Parameters<typeof createLetter>[0]);
+
+    setMakingDoc(false);
+    if (res.success && res.data) {
+      await updateEngagement(docFor.$id, { document_id: res.data.$id });
+      setDocFor(null);
+      setFlash(`${tpl.label} ${reference} created for ${person.name}.`);
+      setTimeout(() => setFlash(""), 6000);
+      load();
+    } else {
+      alert("Could not create the document: " + res.error);
     }
   }
 
@@ -156,6 +234,12 @@ export function PersonDetail({ id }: PersonDetailProps) {
           <ArrowLeft size={14} /> Back to Team
         </Link>
       </div>
+
+      {flash && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 14px", background: "#E6FAF3", border: "1px solid #B3E8D2", borderRadius: "var(--radius-md)", fontSize: 12, color: "#00965C" }}>
+          <Check size={14} /> {flash}
+        </div>
+      )}
 
       <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20, alignItems: "start" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -231,9 +315,24 @@ export function PersonDetail({ id }: PersonDetailProps) {
                           </td>
                           <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700, fontFamily: "var(--font-heading)", color: "var(--foreground)" }}>{formatCurrency(e.agreed_amount, e.currency || currency)}</td>
                           <td style={{ padding: "10px 8px" }}>
-                            <button onClick={() => handleDeleteEngagement(e.$id, e.title)} title="Delete" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--foreground-faint)", padding: 2 }}>
-                              <Trash2 size={12} />
-                            </button>
+                            <div style={{ display: "flex", gap: 4, justifyContent: "flex-end", alignItems: "center" }}>
+                              {e.document_id ? (
+                                <Link href={`/letters/${e.document_id}/edit`} title="Open document" style={{ color: "var(--accent)", display: "flex", padding: 3 }}>
+                                  <FileSignature size={12} />
+                                </Link>
+                              ) : (
+                                <button
+                                  onClick={() => { setDocFor(e); setDocType("agreement"); }}
+                                  title="Create a document from this engagement"
+                                  style={{ background: "none", border: "none", cursor: "pointer", color: "var(--foreground-faint)", padding: 3 }}
+                                >
+                                  <FileSignature size={12} />
+                                </button>
+                              )}
+                              <button onClick={() => handleDeleteEngagement(e.$id, e.title)} title="Delete" style={{ background: "none", border: "none", cursor: "pointer", color: "var(--foreground-faint)", padding: 3 }}>
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -423,6 +522,55 @@ export function PersonDetail({ id }: PersonDetailProps) {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* Create a document from an engagement */}
+      {docFor && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)" }} onClick={() => setDocFor(null)} />
+          <div style={{ position: "relative", width: "100%", maxWidth: 460, background: "var(--background-alt)", borderRadius: "var(--radius-xl)", border: "1px solid var(--border)", padding: 24, boxShadow: "var(--shadow-xl)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <h2 style={{ fontSize: 15, fontWeight: 700, fontFamily: "var(--font-heading)" }}>Create Document</h2>
+              <button onClick={() => setDocFor(null)} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--foreground-muted)" }}><X size={16} /></button>
+            </div>
+            <p style={{ fontSize: 12, color: "var(--foreground-muted)", marginBottom: 14 }}>
+              For <strong style={{ color: "var(--foreground)" }}>{docFor.title}</strong> — {formatCurrency(docFor.agreed_amount, docFor.currency || currency)}
+            </p>
+
+            <label style={labelStyle}>Document Type</label>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 16 }}>
+              {LETTER_TEMPLATES.map((t) => {
+                const active = docType === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    onClick={() => setDocType(t.id)}
+                    style={{
+                      textAlign: "left", cursor: "pointer", padding: "9px 11px", borderRadius: "var(--radius-md)",
+                      border: `1.5px solid ${active ? "var(--accent)" : "var(--border)"}`,
+                      background: active ? "var(--accent-subtle)" : "var(--surface)",
+                    }}
+                  >
+                    <span style={{ display: "block", fontSize: 11.5, fontWeight: 700, fontFamily: "var(--font-heading)", color: active ? "var(--accent)" : "var(--foreground)" }}>{t.label}</span>
+                    <span style={{ display: "block", fontSize: 9.5, color: "var(--foreground-muted)", marginTop: 1, lineHeight: 1.35 }}>{t.desc}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <p style={{ fontSize: 10.5, color: "var(--foreground-faint)", lineHeight: 1.5, marginBottom: 16 }}>
+              Pre-filled from this engagement and saved as a draft under Documents, where you can edit it before sending.
+            </p>
+
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setDocFor(null)} className="btn btn-ghost" style={{ flex: 1, fontSize: 12 }}>Cancel</button>
+              <button onClick={handleCreateDocument} className="btn btn-primary" style={{ flex: 2, justifyContent: "center", fontSize: 12 }} disabled={makingDoc}>
+                {makingDoc ? <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> : <FileSignature size={13} />}
+                {makingDoc ? "Creating..." : "Create Document"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
