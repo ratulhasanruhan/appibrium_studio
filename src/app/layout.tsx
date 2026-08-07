@@ -15,6 +15,10 @@ export const metadata: Metadata = {
   // WhatsApp, iMessage and most crawlers ignore SVG favicons, so raster sizes
   // are listed alongside it — without them a shared link falls back to the
   // host's generic icon.
+  //
+  // The .ico lives in public/ rather than app/, deliberately. As app/favicon.ico
+  // it goes through Turbopack's image pipeline, which rejects ICO files whose
+  // PNG frames are not RGBA; from public/ it is served byte-for-byte.
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },
