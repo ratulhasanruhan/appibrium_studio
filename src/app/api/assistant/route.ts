@@ -1,7 +1,17 @@
 import { NextResponse } from "next/server";
+import { getCaller } from "@/lib/appwrite/server";
+import { ADMIN_ROLES } from "@/utils";
 
 export async function POST(request: Request) {
   try {
+    // An unauthenticated proxy onto a paid model is a standing invoice for
+    // whoever finds it. Both callers of this route are staff screens.
+    const caller = await getCaller(request);
+    const isStaff = caller?.labels.some((l) => ADMIN_ROLES.includes(l.toLowerCase()));
+    if (!isStaff) {
+      return NextResponse.json({ error: "Not authorised." }, { status: 401 });
+    }
+
     const { prompt } = await request.json();
 
     if (!prompt) {

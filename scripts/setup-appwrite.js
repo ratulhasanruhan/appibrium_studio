@@ -370,12 +370,17 @@ async function run() {
 
   // 3. Create Storage Bucket
   console.log(`\n🗄️ Checking Storage Bucket "${bucketId}"...`);
-  const bucketPermissions = [
-    Permission.read(Role.any()),
-    Permission.create(Role.any()),
-    Permission.update(Role.any()),
-    Permission.delete(Role.any())
-  ];
+  // Files are uploaded and downloaded only from the staff Files screen, so the
+  // bucket follows the collections: staff labels, never Role.any(). Left open,
+  // anyone could upload to — or wipe — this bucket.
+  const bucketPermissions = ["owner", "admin", "administrator", "manager", "finance"].flatMap(
+    (role) => [
+      Permission.read(Role.label(role)),
+      Permission.create(Role.label(role)),
+      Permission.update(Role.label(role)),
+      Permission.delete(Role.label(role)),
+    ]
+  );
   try {
     await storage.getBucket(bucketId);
     console.log(`Storage Bucket "${bucketId}" already exists. Updating permissions...`);

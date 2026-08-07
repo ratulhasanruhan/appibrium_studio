@@ -1,9 +1,19 @@
 import { NextResponse } from "next/server";
-import { createAdminClient, Query } from "@/lib/appwrite/server";
+import { createAdminClient, getCaller, Query } from "@/lib/appwrite/server";
 import { DB_ID, COLLECTIONS } from "@/lib/appwrite/client";
+import { ADMIN_ROLES } from "@/utils";
 
 export async function POST(request: Request) {
   try {
+    // This route deletes a client, their contacts and their login, using the
+    // admin key. It shipped with no caller check at all, so anyone who knew or
+    // guessed a client id could destroy the record from outside.
+    const caller = await getCaller(request);
+    const isStaff = caller?.labels.some((l) => ADMIN_ROLES.includes(l.toLowerCase()));
+    if (!isStaff) {
+      return NextResponse.json({ success: false, error: "Not authorised." }, { status: 401 });
+    }
+
     const { id } = await request.json();
 
     if (!id) {
