@@ -1,5 +1,34 @@
 "use server";
 
+import { INTERNAL_PDF_HEADER, internalPdfKey } from "@/lib/pdf-auth";
+
+/**
+ * Renders a page to PDF through /api/pdf.
+ *
+ * Importing the PDF service directly here would need the Chromium binaries
+ * traced into every page route whose Server Actions send email — 66MB apiece.
+ * Going over HTTP keeps that weight in one function. Returns null on failure so
+ * a missing attachment never blocks the email itself.
+ */
+async function renderPdfAttachment(url: string): Promise<string | null> {
+  try {
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").trim().replace(/\/$/, "");
+    const res = await fetch(`${appUrl}/api/pdf`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", [INTERNAL_PDF_HEADER]: internalPdfKey() },
+      body: JSON.stringify({ url }),
+    });
+    if (!res.ok) {
+      console.error("PDF attachment render failed:", res.status, (await res.text()).slice(0, 200));
+      return null;
+    }
+    return Buffer.from(await res.arrayBuffer()).toString("base64");
+  } catch (err) {
+    console.error("PDF attachment render error:", err);
+    return null;
+  }
+}
+
 export async function sendEmail({
   to,
   subject,
@@ -78,19 +107,10 @@ export async function sendInvoiceNotification(clientEmail: string, clientName: s
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").trim();
   const portalUrl = `${appUrl}/public/invoice/${token}`;
 
-  let attachments = undefined;
-  try {
-    const { generatePDFFromURL } = await import("./pdf");
-    const pdfBuffer = await generatePDFFromURL(portalUrl);
-    attachments = [
-      {
-        filename: `${invoiceTitle.replace(/[^a-zA-Z0-9]/g, "_")}_invoice.pdf`,
-        content: pdfBuffer.toString("base64"),
-      },
-    ];
-  } catch (pdfErr) {
-    console.error("Failed to generate PDF attachment for email:", pdfErr);
-  }
+  const invoicePdf = await renderPdfAttachment(portalUrl);
+  const attachments = invoicePdf
+    ? [{ filename: `${invoiceTitle.replace(/[^a-zA-Z0-9]/g, "_")}_invoice.pdf`, content: invoicePdf }]
+    : undefined;
 
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
@@ -116,19 +136,10 @@ export async function sendProposalNotification(clientEmail: string, clientName: 
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").trim();
   const portalUrl = `${appUrl}/public/proposal/${token}`;
 
-  let attachments = undefined;
-  try {
-    const { generatePDFFromURL } = await import("./pdf");
-    const pdfBuffer = await generatePDFFromURL(portalUrl);
-    attachments = [
-      {
-        filename: `${proposalTitle.replace(/[^a-zA-Z0-9]/g, "_")}_proposal.pdf`,
-        content: pdfBuffer.toString("base64"),
-      },
-    ];
-  } catch (pdfErr) {
-    console.error("Failed to generate PDF attachment for email:", pdfErr);
-  }
+  const proposalPdf = await renderPdfAttachment(portalUrl);
+  const attachments = proposalPdf
+    ? [{ filename: `${proposalTitle.replace(/[^a-zA-Z0-9]/g, "_")}_proposal.pdf`, content: proposalPdf }]
+    : undefined;
 
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
