@@ -52,4 +52,17 @@ export function createAdminClient() {
   };
 }
 
+/**
+ * Copies an Appwrite document into a plain object.
+ *
+ * node-appwrite returns documents with a null prototype, and React refuses to
+ * pass those from a Server Action back to a Client Component — the action's
+ * work succeeds and then serialising the reply throws "Only plain objects...
+ * can be passed to Client Components", which surfaces as a generic failure
+ * even though everything was written correctly.
+ */
+export function toPlain<T>(doc: unknown): T {
+  return JSON.parse(JSON.stringify(doc)) as T;
+}
+
 export { ID, Query };

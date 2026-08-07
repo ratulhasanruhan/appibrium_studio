@@ -8,7 +8,7 @@
  * of the app's services.
  */
 
-import { createAdminClient, ID, Query } from "@/lib/appwrite/server";
+import { createAdminClient, toPlain, ID, Query } from "@/lib/appwrite/server";
 import { DB_ID, COLLECTIONS } from "@/lib/appwrite/client";
 import { normalizeBDPhone } from "@/utils";
 import type { Client, ActionResult } from "@/types";
@@ -87,7 +87,7 @@ export async function createClient(
       console.error("[CRM Server] Linked contact creation warning:", contactErr.message);
     }
 
-    return { success: true, data: res as unknown as Client };
+    return { success: true, data: toPlain<Client>(res) };
   } catch (error: any) {
     console.error("[CRM] createClient error:", error);
     return { success: false, error: error.message || "Failed to create client" };
