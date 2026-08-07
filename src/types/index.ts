@@ -352,3 +352,29 @@ export interface Quote {
   $createdAt: string;
   $updatedAt: string;
 }
+
+/** A row in the SMS delivery trail. Written by services/sms, never edited. */
+export interface SmsLog {
+  $id: string;
+  to: string;
+  message: string;
+  entity_type: string;
+  entity_id: string;
+  status: "sent" | "failed" | string;
+  provider_response?: string;
+  $createdAt: string;
+}
+
+/**
+ * An email as Resend knows it. Fetched live rather than mirrored locally, so
+ * `last_event` reflects what actually happened after we handed it over —
+ * delivered, bounced, complained — not merely that we asked for a send.
+ */
+export interface EmailLog {
+  id: string;
+  to: string[];
+  from: string;
+  subject: string;
+  created_at: string;
+  last_event: string;
+}

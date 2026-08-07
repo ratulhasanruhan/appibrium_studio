@@ -22,6 +22,7 @@ import {
   ClipboardList,
   FileSignature,
   UserCog,
+  ScrollText,
 } from "lucide-react";
 
 interface NavItem {
@@ -50,6 +51,7 @@ const toolsNav: NavItem[] = [
 
 const systemNav: NavItem[] = [
   { label: "Notifications", href: "/notifications", icon: Bell },
+  { label: "Logs",          href: "/logs",          icon: ScrollText },
   { label: "Settings",      href: "/settings",      icon: Settings },
 ];
 
