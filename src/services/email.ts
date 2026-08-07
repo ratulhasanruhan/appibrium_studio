@@ -48,7 +48,10 @@ export async function sendEmail({
     }
 
     const fromEmail = process.env.RESEND_FROM_EMAIL || "Appibrium <hello@appibrium.com>";
-    const payload: any = {
+    const payload: {
+      from: string; to: string[]; subject: string; html: string;
+      attachments?: Array<{ filename: string; content: string }>;
+    } = {
       from: fromEmail,
       to: [to],
       subject: subject,
@@ -79,9 +82,9 @@ export async function sendEmail({
 
     const data = await response.json();
     return { success: true, data };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("sendEmail exception:", error);
-    return { success: false, error: error.message };
+    return { success: false, error: error instanceof Error ? error.message : "Failed to send email." };
   }
 }
 
