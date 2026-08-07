@@ -116,6 +116,8 @@ const SCHEMA = {
     { key: "currency", type: "string", required: true, default: "BDT" },
     { key: "public_token", type: "string", required: true },
     { key: "notes", type: "string", required: false, size: 5000 },
+    { key: "sent_at", type: "string", required: false },
+    { key: "paid_at", type: "string", required: false },
   ],
   invoice_items: [
     { key: "invoice_id", type: "string", required: true },
