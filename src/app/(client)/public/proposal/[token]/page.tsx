@@ -81,7 +81,9 @@ function PublicProposalPortalContent() {
     setSigning(true);
     const res = await fetch("/api/public", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ type: "proposal", token, action: "accept" }),
+      // Names the signatory on the record, so an acceptance made here is
+      // distinguishable from one recorded internally by our team.
+      body: JSON.stringify({ type: "proposal", token, action: "accept", name: client?.name || "" }),
     });
     if (res.ok) setStatus("accepted");
     setSigning(false);
@@ -172,7 +174,7 @@ function PublicProposalPortalContent() {
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <img src="/branding_assets/logos/lockup/lockup_w4_dark.svg" alt="Appibrium" style={{ height: 26, width: "auto" }} />
           <div style={{ width: 1, height: 18, background: "rgba(255,255,255,0.25)" }} />
-          <span style={{ fontFamily: "'Jost', system-ui, sans-serif", fontWeight: 800, fontSize: 13, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.9)" }}>
+          <span style={{ fontFamily: "'Jost', 'Noto Sans Bengali', system-ui, sans-serif", fontWeight: 800, fontSize: 13, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.9)" }}>
             Studio
           </span>
         </div>
@@ -227,7 +229,7 @@ function PublicProposalPortalContent() {
               <button
                 onClick={handleAccept}
                 disabled={signing}
-                style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 16px", borderRadius: 6, background: "#00E090", border: "none", color: "#0D2317", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'Jost', system-ui, sans-serif" }}
+                style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 16px", borderRadius: 6, background: "#00E090", border: "none", color: "#0D2317", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'Jost', 'Noto Sans Bengali', system-ui, sans-serif" }}
               >
                 {signing ? <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> : <Check size={13} />}
                 Accept & Sign
@@ -260,7 +262,7 @@ function PublicProposalPortalContent() {
               <img src="/branding_assets/logos/lockup/appibrium_w4_light.png" alt="Appibrium" className="doc-logo" style={{ height: 48, width: "auto" }} />
             </div>
             <div style={{ textAlign: "right" }}>
-              <p style={{ fontSize: 12, fontWeight: 700, color: "#0D2317", fontFamily: "'Jost', sans-serif" }}>Appibrium Technology Co.</p>
+              <p style={{ fontSize: 12, fontWeight: 700, color: "#0D2317", fontFamily: "'Jost', 'Noto Sans Bengali', sans-serif" }}>Appibrium Technology Co.</p>
               <p style={{ fontSize: 11, color: "#6B8F7C", marginTop: 2 }}>23/A Shukrabad, Dhaka, Bangladesh</p>
               <p style={{ fontSize: 11, color: "#6B8F7C" }}>hello@appibrium.com</p>
             </div>
@@ -278,7 +280,7 @@ function PublicProposalPortalContent() {
             </div>
             <div className="meta-item">
               <span className="meta-label">Reference</span>
-              <span className="meta-value" style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>{proposalRef}</span>
+              <span className="meta-value" style={{ fontFamily: "'JetBrains Mono', 'Noto Sans Bengali', monospace", fontSize: 12 }}>{proposalRef}</span>
             </div>
             <div className="meta-item">
               <span className="meta-label">Date Issued</span>
@@ -294,7 +296,7 @@ function PublicProposalPortalContent() {
 
           {/* Title */}
           <div style={{ padding: "32px 40px 0" }}>
-            <h1 style={{ fontSize: 26, fontWeight: 800, color: "#0D2317", fontFamily: "'Jost', sans-serif", lineHeight: 1.2, marginBottom: 6 }}>{proposal.title}</h1>
+            <h1 style={{ fontSize: 26, fontWeight: 800, color: "#0D2317", fontFamily: "'Jost', 'Noto Sans Bengali', sans-serif", lineHeight: 1.2, marginBottom: 6 }}>{proposal.title}</h1>
             <p style={{ fontSize: 12, color: "#6B8F7C" }}>Prepared with care by Appibrium Technology Co. · Version {proposal.version}</p>
           </div>
 
@@ -395,7 +397,7 @@ function PublicProposalPortalContent() {
         .proposal-portal {
           min-height: 100vh;
           background: #EEF5F0;
-          font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+          font-family: 'Plus Jakarta Sans', 'Noto Sans Bengali', system-ui, sans-serif;
         }
 
         /* ─── Header ─── */
@@ -493,7 +495,7 @@ function PublicProposalPortalContent() {
           font-size: 15px;
           font-weight: 700;
           color: #0D2317;
-          font-family: 'Jost', sans-serif;
+          font-family: 'Jost', 'Noto Sans Bengali', sans-serif;
           margin-top: 28px;
           margin-bottom: 10px;
           padding-bottom: 7px;
@@ -525,7 +527,7 @@ function PublicProposalPortalContent() {
           display: flex; flex-direction: column; gap: 3px;
         }
         .pb-stat-k { font-size: 10px; font-weight: 700; color: #6B8F7C; text-transform: uppercase; letter-spacing: 0.06em; }
-        .pb-stat-v { font-size: 15px; font-weight: 800; color: #0D2317; font-family: 'Jost', sans-serif; }
+        .pb-stat-v { font-size: 15px; font-weight: 800; color: #0D2317; font-family: 'Jost', 'Noto Sans Bengali', sans-serif; }
 
         .pb-cards {
           display: grid; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
@@ -535,7 +537,7 @@ function PublicProposalPortalContent() {
           padding: 14px 16px; border-radius: 8px;
           background: #FFFFFF; border: 1px solid #E8F2EC;
         }
-        .pb-card h4 { font-size: 13px; font-weight: 700; color: #0D2317; font-family: 'Jost', sans-serif; margin-bottom: 5px; }
+        .pb-card h4 { font-size: 13px; font-weight: 700; color: #0D2317; font-family: 'Jost', 'Noto Sans Bengali', sans-serif; margin-bottom: 5px; }
         .pb-card p  { font-size: 12.5px; color: #4A6B58; line-height: 1.6; margin: 0; }
 
         .pb-checks { list-style: none; padding-left: 0; margin: 12px 0 16px; }
@@ -577,11 +579,11 @@ function PublicProposalPortalContent() {
           width: 27px; height: 27px; border-radius: 50%; flex-shrink: 0; z-index: 1;
           background: #00B872; color: #fff;
           display: flex; align-items: center; justify-content: center;
-          font-size: 12px; font-weight: 800; font-family: 'Jost', sans-serif;
+          font-size: 12px; font-weight: 800; font-family: 'Jost', 'Noto Sans Bengali', sans-serif;
         }
         .pb-step-body { flex: 1; padding-top: 3px; }
         .pb-step-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-        .pb-step-head h4 { font-size: 13.5px; font-weight: 700; color: #0D2317; font-family: 'Jost', sans-serif; }
+        .pb-step-head h4 { font-size: 13.5px; font-weight: 700; color: #0D2317; font-family: 'Jost', 'Noto Sans Bengali', sans-serif; }
         .pb-step-time { font-size: 11px; font-weight: 600; color: #00965C; background: #E6FAF3; padding: 2px 9px; border-radius: 99px; }
         .pb-step-body p { font-size: 12.5px; color: #4A6B58; line-height: 1.6; margin: 4px 0 0; }
 
@@ -603,7 +605,7 @@ function PublicProposalPortalContent() {
         /* contain, not cover — these are logos with wordmarks that must not crop */
         .pb-work-media img { max-width: 100%; max-height: 100%; object-fit: contain; display: block; }
         .pb-work-media span {
-          font-family: 'Jost', sans-serif; font-size: 22px; font-weight: 800; color: #00B872;
+          font-family: 'Jost', 'Noto Sans Bengali', sans-serif; font-size: 22px; font-weight: 800; color: #00B872;
         }
         .pb-work-body { flex: 1; min-width: 0; }
         .pb-work-cat {
@@ -612,7 +614,7 @@ function PublicProposalPortalContent() {
         }
         .pb-work-body h4 {
           font-size: 15px; font-weight: 700; color: #0D2317;
-          font-family: 'Jost', sans-serif; margin-bottom: 7px;
+          font-family: 'Jost', 'Noto Sans Bengali', sans-serif; margin-bottom: 7px;
         }
         .pb-work-item p { font-size: 12px; color: #5A7C69; line-height: 1.65; margin: 0; }
         .pb-work-result {
@@ -635,7 +637,7 @@ function PublicProposalPortalContent() {
         .pb-table tr:last-child td { border-bottom: none; }
         .pb-right { text-align: right; white-space: nowrap; }
         .pb-table .pb-muted { font-size: 11.5px; }
-        .pb-table td.pb-right { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 600; color: #0D2317; }
+        .pb-table td.pb-right { font-family: 'JetBrains Mono', 'Noto Sans Bengali', monospace; font-size: 12.5px; font-weight: 600; color: #0D2317; }
 
         .pb-total {
           display: flex; justify-content: space-between; align-items: center; gap: 16px;
@@ -649,7 +651,7 @@ function PublicProposalPortalContent() {
         }
         .pb-total-sub { font-size: 11px; color: #6B8F7C; }
         .pb-total-amount {
-          font-family: 'Jost', sans-serif; font-size: 24px; font-weight: 800;
+          font-family: 'Jost', 'Noto Sans Bengali', sans-serif; font-size: 24px; font-weight: 800;
           color: #0D2317; letter-spacing: -0.02em; white-space: nowrap;
         }
 
@@ -661,7 +663,7 @@ function PublicProposalPortalContent() {
 
         .pb-faq { display: flex; flex-direction: column; gap: 10px; margin: 14px 0 18px; }
         .pb-faq-item { padding: 13px 16px; background: #FAFCFA; border: 1px solid #E8F2EC; border-radius: 8px; }
-        .pb-faq-item h4 { font-size: 13px; font-weight: 700; color: #0D2317; font-family: 'Jost', sans-serif; margin-bottom: 5px; }
+        .pb-faq-item h4 { font-size: 13px; font-weight: 700; color: #0D2317; font-family: 'Jost', 'Noto Sans Bengali', sans-serif; margin-bottom: 5px; }
         .pb-faq-item p  { font-size: 12.5px; color: #4A6B58; line-height: 1.6; margin: 0; }
 
         .pb-cta {
@@ -669,7 +671,7 @@ function PublicProposalPortalContent() {
           background: linear-gradient(135deg, #F0FAF5 0%, #FAFCFA 100%);
           border: 1.5px solid #D6EDE1;
         }
-        .pb-cta h4 { font-size: 15px; font-weight: 800; color: #0D2317; font-family: 'Jost', sans-serif; margin-bottom: 7px; }
+        .pb-cta h4 { font-size: 15px; font-weight: 800; color: #0D2317; font-family: 'Jost', 'Noto Sans Bengali', sans-serif; margin-bottom: 7px; }
         .pb-cta p  { font-size: 13px; color: #4A6B58; line-height: 1.65; margin-bottom: 8px; }
         .pb-cta p:last-child { margin-bottom: 0; }
 

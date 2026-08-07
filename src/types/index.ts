@@ -122,6 +122,8 @@ export interface Proposal {
   sent_at?: string;
   viewed_at?: string;
   accepted_at?: string;
+  /** Who agreed, and whether it was signed on the link or recorded internally. */
+  accepted_by?: string;
   converted_to_invoice_id?: string;
   $createdAt: string;
   $updatedAt: string;

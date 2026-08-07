@@ -1,5 +1,6 @@
 import { databases, DB_ID, COLLECTIONS, ID, Query } from "@/lib/appwrite/client";
 import type { Proposal, ActionResult } from "@/types";
+import { acceptancePatch, openProjectForProposal } from "@/lib/proposal-accept";
 
 // ── Proposals ────────────────────────────────────────────────────────────── //
 
@@ -61,6 +62,47 @@ export async function updateProposal(
   } catch (error: any) {
     console.error("[Proposals] updateProposal error:", error);
     return { success: false, error: error.message || "Failed to update proposal" };
+  }
+}
+
+/**
+ * Record an acceptance that happened away from the share link.
+ *
+ * Plenty of proposals are agreed on a call or in a meeting and never get
+ * clicked. Marking one accepted by hand used to mean editing the status and
+ * then remembering to open the project yourself — so the two drifted apart.
+ * This runs the same rules the client's own accept runs, and notes that the
+ * acceptance was recorded internally rather than signed.
+ */
+export async function acceptProposalInternally(
+  proposal: Proposal,
+  acceptedBy: string
+): Promise<ActionResult<{ project: "created" | "exists" | "failed" }>> {
+  try {
+    const alreadyAccepted = proposal.status === "accepted";
+    const patch = acceptancePatch(acceptedBy, "admin");
+    await databases.updateDocument(DB_ID, COLLECTIONS.PROPOSALS, proposal.$id, patch);
+
+    // Skipped when it was already accepted: the project was opened then.
+    const project = alreadyAccepted
+      ? "exists"
+      : await openProjectForProposal(proposal, {
+          async existingProjectNames(clientId) {
+            const list = await databases.listDocuments(DB_ID, COLLECTIONS.PROJECTS, [
+              Query.equal("client_id", clientId),
+              Query.limit(100),
+            ]);
+            return list.documents.map((p) => String(p.name));
+          },
+          createProject: (data) =>
+            databases.createDocument(DB_ID, COLLECTIONS.PROJECTS, ID.unique(), data),
+        });
+
+    return { success: true, data: { project } };
+  } catch (error: unknown) {
+    console.error("[Proposals] acceptProposalInternally error:", error);
+    const message = error instanceof Error ? error.message : "Failed to accept proposal";
+    return { success: false, error: message };
   }
 }
 

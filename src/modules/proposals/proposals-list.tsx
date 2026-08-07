@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Search, FileText, ExternalLink, Send, Clock, Loader2, Trash2 } from "lucide-react";
+import { Search, FileText, ExternalLink, Send, Clock, Loader2, Trash2, CheckCircle2, X } from "lucide-react";
 import type { Proposal, Client } from "@/types";
 import { formatRelativeTime, hasAdminRole } from "@/utils";
 import Link from "next/link";
-import { getProposals, deleteProposal } from "@/services/proposals";
+import { getProposals, deleteProposal, acceptProposalInternally } from "@/services/proposals";
 import { getClients } from "@/services/crm";
 import { getPortalData } from "@/services/portal";
 import { account, databases, DB_ID, COLLECTIONS, Query } from "@/lib/appwrite/client";
@@ -36,6 +36,12 @@ export function ProposalsList() {
   const [proposals, setProposals] = useState<ProposalWithClient[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+
+  // Recording an acceptance agreed away from the share link.
+  const [accepting, setAccepting] = useState<ProposalWithClient | null>(null);
+  const [acceptedBy, setAcceptedBy] = useState("");
+  const [acceptBusy, setAcceptBusy] = useState(false);
+  const [acceptNote, setAcceptNote] = useState("");
 
   useEffect(() => {
     async function load() {
@@ -87,6 +93,34 @@ export function ProposalsList() {
     } else {
       alert("Failed to delete proposal: " + res.error);
     }
+  }
+
+  function openAcceptDialog(p: ProposalWithClient) {
+    setAccepting(p);
+    setAcceptedBy(p.client_name === "Unknown Client" ? "" : p.client_name);
+  }
+
+  async function handleAccept() {
+    if (!accepting || !acceptedBy.trim()) return;
+    setAcceptBusy(true);
+    const res = await acceptProposalInternally(accepting, acceptedBy.trim());
+    setAcceptBusy(false);
+    if (!res.success) {
+      alert("Could not accept this proposal: " + res.error);
+      return;
+    }
+    setProposals((prev) =>
+      prev.map((p) => (p.$id === accepting.$id ? { ...p, status: "accepted" as const } : p))
+    );
+    setAcceptNote(
+      res.data?.project === "created"
+        ? `"${accepting.title}" accepted — a project has been opened for ${accepting.client_name}.`
+        : res.data?.project === "failed"
+          ? `"${accepting.title}" accepted, but the project could not be opened. Create it manually.`
+          : `"${accepting.title}" accepted. A project for it already exists.`
+    );
+    setAccepting(null);
+    setTimeout(() => setAcceptNote(""), 8000);
   }
 
   const filtered = proposals.filter((p) => {
@@ -203,6 +237,15 @@ export function ProposalsList() {
                     </td>
                     <td>
                       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        {isAdmin && p.status !== "accepted" && p.status !== "rejected" && (
+                          <button
+                            onClick={() => openAcceptDialog(p)}
+                            title="Record acceptance"
+                            style={{ fontSize: 11, color: "#00965C", padding: "4px 8px", borderRadius: "var(--radius-sm)", background: "var(--accent-subtle)", border: "1px solid rgba(0,184,114,0.15)", fontWeight: 500, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 4, fontFamily: "var(--font-body)" }}
+                          >
+                            <CheckCircle2 size={12} /> Accept
+                          </button>
+                        )}
                         {isAdmin && (
                           <>
                             <Link
@@ -238,6 +281,86 @@ export function ProposalsList() {
           </table>
         )}
       </div>
+
+      {/* Acceptance recorded away from the share link */}
+      {accepting && (
+        <div
+          onClick={() => !acceptBusy && setAccepting(null)}
+          style={{ position: "fixed", inset: 0, background: "rgba(6,20,13,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 60 }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="card"
+            style={{ width: "100%", maxWidth: 440, display: "flex", flexDirection: "column", gap: 14 }}
+          >
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+              <div>
+                <h3 style={{ fontSize: 14, fontWeight: 700, fontFamily: "var(--font-heading)", color: "var(--foreground)" }}>
+                  Record acceptance
+                </h3>
+                <p style={{ fontSize: 11.5, color: "var(--foreground-muted)", marginTop: 3 }}>
+                  {accepting.title} — {accepting.client_name}
+                </p>
+              </div>
+              <button
+                onClick={() => setAccepting(null)}
+                disabled={acceptBusy}
+                style={{ background: "none", border: "none", color: "var(--foreground-faint)", cursor: "pointer", padding: 2, display: "flex" }}
+              >
+                <X size={15} />
+              </button>
+            </div>
+
+            <div>
+              <label htmlFor="accepted-by" style={{ display: "block", fontSize: 11, fontWeight: 600, color: "var(--foreground-2)", marginBottom: 5 }}>
+                Agreed by
+              </label>
+              <input
+                id="accepted-by"
+                className="input-base"
+                value={acceptedBy}
+                onChange={(e) => setAcceptedBy(e.target.value)}
+                placeholder="Who confirmed it, e.g. Rahim Uddin"
+                autoFocus
+                style={{ fontSize: 12.5 }}
+              />
+              <p style={{ fontSize: 10.5, color: "var(--foreground-faint)", marginTop: 5, lineHeight: 1.5 }}>
+                Kept on the proposal, marked as recorded internally so it is never
+                mistaken for the client signing their own link.
+              </p>
+            </div>
+
+            <div style={{ background: "var(--accent-subtle)", border: "1px solid rgba(0,184,114,0.15)", borderRadius: "var(--radius-sm)", padding: "9px 11px", fontSize: 11, color: "var(--foreground-2)", lineHeight: 1.55 }}>
+              This opens a project for {accepting.client_name} named after the
+              proposal, exactly as accepting on the link does. If one already
+              exists, nothing is duplicated.
+            </div>
+
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button className="btn btn-ghost" onClick={() => setAccepting(null)} disabled={acceptBusy} style={{ fontSize: 12 }}>
+                Cancel
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={handleAccept}
+                disabled={acceptBusy || !acceptedBy.trim()}
+                style={{ fontSize: 12, display: "inline-flex", alignItems: "center", gap: 6 }}
+              >
+                {acceptBusy ? <Loader2 size={13} style={{ animation: "spin 1s linear infinite" }} /> : <CheckCircle2 size={13} />}
+                {acceptBusy ? "Recording..." : "Accept proposal"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {acceptNote && (
+        <div style={{ position: "fixed", bottom: 18, right: 18, zIndex: 70, maxWidth: 340, background: "var(--surface)", border: "1px solid rgba(0,184,114,0.3)", borderRadius: "var(--radius-md, 8px)", padding: "11px 13px", display: "flex", gap: 8, alignItems: "flex-start", boxShadow: "0 8px 24px rgba(6,20,13,0.14)" }}>
+          <CheckCircle2 size={14} style={{ color: "#00965C", flexShrink: 0, marginTop: 1 }} />
+          <p style={{ fontSize: 11.5, color: "var(--foreground-2)", lineHeight: 1.5 }}>{acceptNote}</p>
+        </div>
+      )}
+
       <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
     </div>
   );

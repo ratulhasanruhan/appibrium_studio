@@ -12,7 +12,8 @@ import type { Invoice, Client, InvoiceItem, Project } from "@/types";
 import { formatDate, formatCurrency, documentRef, hasAdminRole } from "@/utils";
 import { account } from "@/lib/appwrite/client";
 import { useParams } from "next/navigation";
-import { sendInvoiceSMS } from "@/services/sms";
+import { sendInvoiceSMS, sendPaymentReceivedSMS } from "@/services/sms";
+import { sendPaymentReceiptNotification } from "@/services/email";
 
 const STATUS_BADGE: Record<string, string> = {
   draft:     "badge-draft",
@@ -38,6 +39,8 @@ export default function InvoiceDetailPage() {
   const [updating, setUpdating] = useState(false);
   const [updateSuccess, setUpdateSuccess] = useState(false);
   const [bookedFlash, setBookedFlash] = useState("");
+  const [notifying, setNotifying]   = useState(false);
+  const [notifyFlash, setNotifyFlash] = useState("");
 
   // SMS Notice State
   const [smsSending, setSmsSending] = useState(false);
@@ -146,6 +149,46 @@ export default function InvoiceDetailPage() {
         setBookedFlash("Income recorded in Transactions.");
         setTimeout(() => setBookedFlash(""), 4000);
       }
+
+      // The client hears that their money landed. Guarded by paid_at above, so
+      // re-saving "paid" never sends a second receipt for the same payment.
+      notifyClientOfPayment({ ...invoice, ...patch });
+    }
+  }
+
+  /**
+   * Tell the client the invoice is settled: a receipt by email, and a short SMS
+   * if we hold a number. Runs after the status is already saved and reports
+   * through its own flash, so a provider outage cannot undo a recorded payment.
+   */
+  async function notifyClientOfPayment(paid: Invoice) {
+    if (!client?.email) return;
+    setNotifying(true);
+    setNotifyFlash("");
+
+    const amount = formatCurrency(paid.total, paid.currency);
+    const reference = documentRef("INV", paid.$createdAt, paid.$id);
+    const paidOn = formatDate(paid.paid_at || new Date().toISOString());
+    const sent: string[] = [];
+
+    try {
+      const mail = await sendPaymentReceiptNotification(
+        client.email, client.name, paid.title, amount, paidOn, paid.public_token, reference
+      );
+      if (mail.success) sent.push("Receipt emailed");
+      else console.error("Payment receipt email failed:", mail.error);
+
+      if (client.phone) {
+        const sms = await sendPaymentReceivedSMS(client.phone, client.name, amount, reference);
+        if (sms.success) sent.push("SMS sent");
+        else console.error("Payment receipt SMS failed:", sms);
+      }
+    } catch (err) {
+      console.error("Payment notification failed:", err);
+    } finally {
+      setNotifying(false);
+      setNotifyFlash(sent.length ? `${sent.join(" · ")} to ${client.name}.` : "Could not notify the client.");
+      setTimeout(() => setNotifyFlash(""), 6000);
     }
   }
 
@@ -303,6 +346,18 @@ export default function InvoiceDetailPage() {
                 {bookedFlash && (
                   <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#00965C" }}>
                     <Check size={12} /> {bookedFlash}
+                  </div>
+                )}
+
+                {notifying && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--foreground-muted)" }}>
+                    <Loader2 size={12} style={{ animation: "spin 1s linear infinite" }} /> Sending the client their receipt...
+                  </div>
+                )}
+
+                {notifyFlash && (
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 6, fontSize: 11, color: notifyFlash.startsWith("Could not") ? "#B45309" : "#00965C", lineHeight: 1.5 }}>
+                    <Check size={12} style={{ flexShrink: 0, marginTop: 1 }} /> {notifyFlash}
                   </div>
                 )}
 

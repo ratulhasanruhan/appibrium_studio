@@ -488,7 +488,7 @@ export function AnalyticsDashboard() {
           @page { size: A4 landscape; margin: 12mm; }
           .no-print { display: none !important; }
           .print-only { display: block; }
-          .an-print-head h1 { font-size: 20px; font-family: 'Jost', sans-serif; color: #0D2317; }
+          .an-print-head h1 { font-size: 20px; font-family: 'Jost', 'Noto Sans Bengali', sans-serif; color: #0D2317; }
           .an-print-head p { font-size: 11px; color: #6B8F7C; margin-top: 3px; }
           .an-wrap { gap: 12px !important; }
           .card { break-inside: avoid; box-shadow: none !important; }

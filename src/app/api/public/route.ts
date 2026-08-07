@@ -14,6 +14,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient, ID, Query } from "@/lib/appwrite/server";
 import { DB_ID, COLLECTIONS } from "@/lib/appwrite/client";
+import { acceptancePatch, openProjectForProposal, type AcceptableProposal } from "@/lib/proposal-accept";
 
 type DocType = "invoice" | "proposal" | "letter" | "team";
 
@@ -134,7 +135,7 @@ export async function POST(request: Request) {
       patch = doc.status === "sent" ? { viewed_at: now } : {};
     } else if (type === "proposal") {
       if (action === "view") patch = doc.status === "sent" ? { status: "viewed", viewed_at: now } : {};
-      if (action === "accept") patch = { status: "accepted", accepted_at: now };
+      if (action === "accept") patch = acceptancePatch(String(name || ""), "client", now);
       if (action === "reject") patch = { status: "rejected" };
     } else if (type === "letter") {
       if (action === "view") patch = doc.status === "sent" ? { status: "viewed", viewed_at: now } : {};
@@ -147,24 +148,19 @@ export async function POST(request: Request) {
 
     const updated = await databases.updateDocument(DB_ID, COLLECTION_FOR[type as DocType], doc.$id, patch);
 
-    // Accepting a proposal opens the project it describes, once.
+    // Accepting a proposal opens the project it describes, once. The same rules
+    // run when an acceptance is recorded internally — see lib/proposal-accept.
     if (type === "proposal" && action === "accept" && doc.status !== "accepted") {
-      try {
-        const existing = await databases.listDocuments(DB_ID, COLLECTIONS.PROJECTS, [
-          Query.equal("client_id", doc.client_id as string), Query.limit(100),
-        ]);
-        if (!existing.documents.some((p) => p.name === doc.title)) {
-          await databases.createDocument(DB_ID, COLLECTIONS.PROJECTS, ID.unique(), {
-            name: doc.title,
-            client_id: doc.client_id,
-            description: `Project initialised automatically from accepted proposal "${doc.title}".`,
-            status: "active",
-            currency: doc.currency || "BDT",
-          });
-        }
-      } catch (projErr) {
-        console.error("[api/public] project creation after accept failed:", projErr);
-      }
+      await openProjectForProposal(doc as unknown as AcceptableProposal, {
+        async existingProjectNames(clientId) {
+          const res = await databases.listDocuments(DB_ID, COLLECTIONS.PROJECTS, [
+            Query.equal("client_id", clientId), Query.limit(100),
+          ]);
+          return res.documents.map((p) => String(p.name));
+        },
+        createProject: (data) =>
+          databases.createDocument(DB_ID, COLLECTIONS.PROJECTS, ID.unique(), data),
+      });
     }
 
     return NextResponse.json({ ok: true, document: updated });

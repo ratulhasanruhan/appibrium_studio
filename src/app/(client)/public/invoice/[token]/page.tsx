@@ -84,11 +84,11 @@ export default function PublicInvoicePortal() {
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <img src="/branding_assets/logos/lockup/lockup_w4_dark.svg" alt="Appibrium" style={{ height: 26, width: "auto" }} />
           <div style={{ width: 1, height: 18, background: "rgba(255,255,255,0.25)" }} />
-          <span style={{ fontFamily: "'Jost', system-ui, sans-serif", fontWeight: 800, fontSize: 13, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.9)" }}>Studio</span>
+          <span style={{ fontFamily: "'Jost', 'Noto Sans Bengali', system-ui, sans-serif", fontWeight: 800, fontSize: 13, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.9)" }}>Studio</span>
         </div>
         <button
           onClick={() => window.print()}
-          style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 14px", borderRadius: 6, background: "#00E090", border: "none", color: "#0D2317", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'Jost', system-ui, sans-serif" }}
+          style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 14px", borderRadius: 6, background: "#00E090", border: "none", color: "#0D2317", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "'Jost', 'Noto Sans Bengali', system-ui, sans-serif" }}
         >
           <Printer size={13} /> Download PDF
         </button>
@@ -108,7 +108,7 @@ export default function PublicInvoicePortal() {
           <div className="inv-doc-header">
             <div>
               <div className="inv-badge">INVOICE</div>
-              <p style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: "#6B8F7C", marginTop: 6 }}>{invoiceRef}</p>
+              <p style={{ fontFamily: "'JetBrains Mono', 'Noto Sans Bengali', monospace", fontSize: 12, color: "#6B8F7C", marginTop: 6 }}>{invoiceRef}</p>
             </div>
             <div style={{ textAlign: "right", display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
               <img src="/branding_assets/logos/lockup/appibrium_w4_light.png" alt="Appibrium" style={{ height: 48, width: "auto", display: "block", marginLeft: "auto", marginRight: 0, marginBottom: 6 }} />
@@ -147,7 +147,7 @@ export default function PublicInvoicePortal() {
 
           {/* ─── Title ─── */}
           <div style={{ padding: "24px 40px 0" }}>
-            <h1 style={{ fontSize: 18, fontWeight: 700, color: "#0D2317", fontFamily: "'Jost', sans-serif" }}>{invoice.title}</h1>
+            <h1 style={{ fontSize: 18, fontWeight: 700, color: "#0D2317", fontFamily: "'Jost', 'Noto Sans Bengali', sans-serif" }}>{invoice.title}</h1>
           </div>
 
           {/* ─── Line Items ─── */}
@@ -305,7 +305,7 @@ export default function PublicInvoicePortal() {
       <style>{`
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
-        .invoice-portal { min-height: 100vh; background: #EEF5F0; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; overflow-x: hidden; }
+        .invoice-portal { min-height: 100vh; background: #EEF5F0; font-family: 'Plus Jakarta Sans', 'Noto Sans Bengali', system-ui, sans-serif; overflow-x: hidden; }
 
         .inv-header {
           position: sticky; top: 0; z-index: 100;
@@ -335,7 +335,7 @@ export default function PublicInvoicePortal() {
           color: #0D2317;
           font-size: 14px; font-weight: 800;
           letter-spacing: 0.14em;
-          font-family: 'Jost', sans-serif;
+          font-family: 'Jost', 'Noto Sans Bengali', sans-serif;
         }
 
         .inv-accent-line { height: 3px; background: linear-gradient(90deg, #00B872 0%, #00E090 60%, transparent 100%); }
@@ -419,7 +419,7 @@ export default function PublicInvoicePortal() {
         .payment-row-value {
           display: flex; align-items: center; gap: 5px;
           font-weight: 600; color: #1E3A27;
-          font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.01em;
+          font-family: 'JetBrains Mono', 'Noto Sans Bengali', monospace; font-size: 11px; letter-spacing: 0.01em;
           text-align: right;
         }
 

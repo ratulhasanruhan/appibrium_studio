@@ -160,7 +160,7 @@ function PublicLetterContent() {
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <img src="/branding_assets/logos/lockup/lockup_w4_dark.svg" alt="Appibrium" style={{ height: 26 }} />
           <div style={{ width: 1, height: 18, background: "rgba(255,255,255,0.25)" }} />
-          <span style={{ fontFamily: "'Jost', sans-serif", fontWeight: 800, fontSize: 13, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.9)" }}>Studio</span>
+          <span style={{ fontFamily: "'Jost', 'Noto Sans Bengali', sans-serif", fontWeight: 800, fontSize: 13, letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(255,255,255,0.9)" }}>Studio</span>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {signed ? (
@@ -288,7 +288,7 @@ function PublicLetterContent() {
 
       <style>{`
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        .letter-portal { min-height: 100vh; background: #EEF5F0; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; overflow-x: hidden; }
+        .letter-portal { min-height: 100vh; background: #EEF5F0; font-family: 'Plus Jakarta Sans', 'Noto Sans Bengali', system-ui, sans-serif; overflow-x: hidden; }
 
         .lt-bar {
           position: sticky; top: 0; z-index: 100;
@@ -312,7 +312,7 @@ function PublicLetterContent() {
         .lt-btn-accent {
           display: flex; align-items: center; gap: 5px; padding: 6px 16px; border-radius: 6px;
           background: #00E090; border: none; color: #0D2317; font-size: 12px; font-weight: 700;
-          cursor: pointer; font-family: 'Jost', sans-serif;
+          cursor: pointer; font-family: 'Jost', 'Noto Sans Bengali', sans-serif;
         }
 
         .lt-main { padding: 36px 20px 60px; }
@@ -326,7 +326,7 @@ function PublicLetterContent() {
         .lt-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 24px; }
         .lt-logo { height: 44px; width: auto; }
         .lt-head-meta { text-align: right; font-size: 11px; color: #6B8F7C; line-height: 1.65; }
-        .lt-co { font-size: 12.5px; font-weight: 700; color: #0D2317; font-family: 'Jost', sans-serif; }
+        .lt-co { font-size: 12.5px; font-weight: 700; color: #0D2317; font-family: 'Jost', 'Noto Sans Bengali', sans-serif; }
         .lt-rule { height: 2.5px; margin-top: 14px; background: linear-gradient(90deg, #00B872 0%, #00E090 55%, transparent 100%); }
 
         .lt-ref {
@@ -340,12 +340,12 @@ function PublicLetterContent() {
           display: block; font-size: 9.5px; font-weight: 700; color: #6B8F7C;
           text-transform: uppercase; letter-spacing: 0.09em; margin-bottom: 4px;
         }
-        .lt-to-name { font-size: 13.5px; font-weight: 700; color: #0D2317; font-family: 'Jost', sans-serif; }
+        .lt-to-name { font-size: 13.5px; font-weight: 700; color: #0D2317; font-family: 'Jost', 'Noto Sans Bengali', sans-serif; }
 
         .lt-subject {
           margin: 26px 0 18px; padding-bottom: 10px;
           font-size: 17px; font-weight: 800; color: #0D2317;
-          font-family: 'Jost', sans-serif; letter-spacing: -0.01em;
+          font-family: 'Jost', 'Noto Sans Bengali', sans-serif; letter-spacing: -0.01em;
           border-bottom: 1px solid #E8F2EC;
         }
 
@@ -355,7 +355,7 @@ function PublicLetterContent() {
         .lt-lead { font-weight: 600; color: #0D2317 !important; }
         .lt-closing { margin-top: 14px; }
         .lt-clause {
-          font-size: 13px; font-weight: 700; color: #0D2317; font-family: 'Jost', sans-serif;
+          font-size: 13px; font-weight: 700; color: #0D2317; font-family: 'Jost', 'Noto Sans Bengali', sans-serif;
           margin: 20px 0 8px; padding-left: 9px; border-left: 3px solid #00B872;
         }
         .lt-list { margin: 0 0 12px; padding-left: 20px; }
@@ -376,7 +376,7 @@ function PublicLetterContent() {
           padding-left: 6px;
         }
         .lt-sign-rule { border-bottom: 1px solid #0D2317; margin: 5px 0 7px; }
-        .lt-sign-name { font-size: 12.5px; font-weight: 700; color: #0D2317; font-family: 'Jost', sans-serif; }
+        .lt-sign-name { font-size: 12.5px; font-weight: 700; color: #0D2317; font-family: 'Jost', 'Noto Sans Bengali', sans-serif; }
         .lt-sign-title { font-size: 11px; color: #6B8F7C; line-height: 1.55; }
 
         .lt-auth {
@@ -387,7 +387,7 @@ function PublicLetterContent() {
           width: 36px; height: 36px; border-radius: 50%; background: #F5ECD5;
           display: flex; align-items: center; justify-content: center; color: #B37D00; flex-shrink: 0;
         }
-        .lt-auth h3 { font-size: 14px; font-weight: 700; color: #0D2317; font-family: 'Jost', sans-serif; }
+        .lt-auth h3 { font-size: 14px; font-weight: 700; color: #0D2317; font-family: 'Jost', 'Noto Sans Bengali', sans-serif; }
         .lt-auth p  { font-size: 12px; color: #6B8F7C; line-height: 1.55; margin-top: 4px; }
         .lt-auth-input {
           width: 100%; padding: 8px 10px 8px 30px; font-size: 12px;

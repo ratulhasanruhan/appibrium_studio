@@ -100,6 +100,7 @@ const SCHEMA = {
     { key: "sent_at", type: "string", required: false },
     { key: "viewed_at", type: "string", required: false },
     { key: "accepted_at", type: "string", required: false },
+    { key: "accepted_by", type: "string", required: false },
   ],
   invoices: [
     { key: "client_id", type: "string", required: true },
