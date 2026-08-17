@@ -71,13 +71,30 @@ export async function GET(request: Request) {
     } catch { /* fall back to app defaults client-side */ }
 
     if (type === "invoice") {
-      const [client, items] = await Promise.all([
+      const [client, items, ledger] = await Promise.all([
         doc.client_id ? databases.getDocument(DB_ID, COLLECTIONS.CLIENTS, doc.client_id as string).catch(() => null) : null,
         databases.listDocuments(DB_ID, COLLECTIONS.INVOICE_ITEMS, [
           Query.equal("invoice_id", doc.$id), Query.orderAsc("$createdAt"),
         ]).then((r) => r.documents).catch(() => []),
+        databases.listDocuments(DB_ID, COLLECTIONS.TRANSACTIONS, [
+          Query.equal("invoice_id", doc.$id), Query.limit(100),
+        ]).then((r) => r.documents).catch(() => []),
       ]);
-      return NextResponse.json({ invoice: doc, client, items, company, bank });
+
+      // What the recipient has paid, and anything handed back to them, so a
+      // part-paid or refunded invoice can show its own history. Narrowed by
+      // hand: the ledger row carries internal fields (project, category, our
+      // own note) that are not theirs to see.
+      const asMovement = (t: typeof ledger[number]) => ({
+        date: (t.transaction_date as string) || t.$createdAt,
+        amount: t.amount as number,
+      });
+      const byDate = (a: { date: string }, b: { date: string }) => a.date.localeCompare(b.date);
+
+      const payments = ledger.filter((t) => t.type === "income" || t.type === "advance").map(asMovement).sort(byDate);
+      const refunds = ledger.filter((t) => t.type === "refund").map(asMovement).sort(byDate);
+
+      return NextResponse.json({ invoice: doc, client, items, payments, refunds, company, bank });
     }
 
     if (type === "proposal") {

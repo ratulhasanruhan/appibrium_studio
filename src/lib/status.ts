@@ -18,8 +18,23 @@ const OK: StatusStyle      = { bg: "#E6FAF3", color: "#00965C" };
 const DANGER: StatusStyle  = { bg: "#FEF2F2", color: "#D14F4F" };
 
 export const INVOICE_STATUS: Record<string, StatusStyle> = {
-  draft: NEUTRAL, sent: INFO, paid: OK, overdue: DANGER, cancelled: MUTED,
+  draft: NEUTRAL, sent: INFO, partially_paid: WARN, paid: OK, overdue: DANGER, cancelled: MUTED,
 };
+
+/** Badge class per invoice status, matching the `.badge-*` rules in globals.css. */
+export const INVOICE_STATUS_BADGE: Record<string, string> = {
+  draft: "badge-draft", sent: "badge-sent", partially_paid: "badge-partially_paid",
+  paid: "badge-paid", overdue: "badge-overdue", cancelled: "badge-cancelled",
+};
+
+/** Human wording for a status. Only stored values need an entry — the rest read fine capitalised. */
+const INVOICE_STATUS_LABEL: Record<string, string> = {
+  partially_paid: "Partially paid",
+};
+
+export function invoiceStatusLabel(status: string): string {
+  return INVOICE_STATUS_LABEL[status] ?? status;
+}
 
 export const LETTER_STATUS: Record<string, StatusStyle> = {
   draft: NEUTRAL, sent: INFO, viewed: WARN, signed: OK, declined: DANGER,

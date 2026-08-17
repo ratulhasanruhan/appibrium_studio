@@ -118,6 +118,7 @@ const SCHEMA = {
     { key: "public_token", type: "string", required: true },
     { key: "notes", type: "string", required: false, size: 5000 },
     { key: "sent_at", type: "string", required: false },
+    { key: "amount_paid", type: "double", required: false, default: 0 },
     { key: "paid_at", type: "string", required: false },
   ],
   invoice_items: [

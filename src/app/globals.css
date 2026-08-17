@@ -310,6 +310,7 @@ h1, h2, h3, h4, h5, h6 {
 .badge-active    { background: #E6FAF3; color: #00965C; border-color: #B3E8D2; }
 .badge-sent      { background: #EEF4FF; color: #3B72D4; border-color: #C3D7F7; }
 .badge-paid      { background: #E6FAF3; color: #00965C; border-color: #B3E8D2; }
+.badge-partially_paid { background: #FFFBEB; color: #B45309; border-color: #FDE68A; }
 .badge-overdue   { background: #FEF2F2; color: #D14F4F; border-color: #FAC5C5; }
 .badge-cancelled { background: #F5F5F5; color: #9CA3AF; border-color: #E5E7EB; }
 .badge-accepted  { background: #E6FAF3; color: #00965C; border-color: #B3E8D2; }

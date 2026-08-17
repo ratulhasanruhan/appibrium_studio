@@ -22,7 +22,7 @@ import type { Project, Client, Invoice, Transaction, Person, Engagement } from "
 import { formatDate, formatCurrency, documentRef, randomToken, hasAdminRole } from "@/utils";
 import { account } from "@/lib/appwrite/client";
 import { calcProjectFinancials, isOutflow, effectiveInvoiceStatus } from "@/lib/finance";
-import { INVOICE_STATUS, PROJECT_STATUS_BADGE, TRANSACTION_TYPE_COLOR, ENGAGEMENT_STATUS, statusStyle } from "@/lib/status";
+import { INVOICE_STATUS, PROJECT_STATUS_BADGE, TRANSACTION_TYPE_COLOR, ENGAGEMENT_STATUS, statusStyle, invoiceStatusLabel } from "@/lib/status";
 
 interface ProjectDetailProps {
   id: string;
@@ -424,7 +424,7 @@ export function ProjectDetail({ id }: ProjectDetailProps) {
                           <td style={{ padding: "10px 12px", color: "var(--foreground-muted)" }}>{formatDate(inv.issue_date)}</td>
                           <td style={{ padding: "10px 12px", color: shown === "overdue" ? "#D14F4F" : "var(--foreground-muted)" }}>{formatDate(inv.due_date)}</td>
                           <td style={{ padding: "10px 12px" }}>
-                            <span style={{ display: "inline-block", padding: "2px 9px", borderRadius: 99, fontSize: 10.5, fontWeight: 600, background: st.bg, color: st.color, textTransform: "capitalize" }}>{shown}</span>
+                            <span style={{ display: "inline-block", padding: "2px 9px", borderRadius: 99, fontSize: 10.5, fontWeight: 600, background: st.bg, color: st.color, textTransform: "capitalize" }}>{invoiceStatusLabel(shown)}</span>
                           </td>
                           <td style={{ padding: "10px 12px", textAlign: "right", fontWeight: 700, fontFamily: "var(--font-heading)", color: "var(--foreground)" }}>{formatCurrency(inv.total, inv.currency || currency)}</td>
                         </tr>

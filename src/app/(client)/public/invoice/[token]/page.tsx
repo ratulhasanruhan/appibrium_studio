@@ -4,8 +4,14 @@ import React, { useState, useEffect } from "react";
 import { ShieldAlert, Loader2, Printer, Check, Copy } from "lucide-react";
 import type { Invoice, Client, InvoiceItem } from "@/types";
 import { formatDate, formatCurrency, documentRef } from "@/utils";
-import { effectiveInvoiceStatus } from "@/lib/finance";
+import { effectiveInvoiceStatus, amountCollected, balanceDue } from "@/lib/finance";
 import { useParams } from "next/navigation";
+
+/** One movement as the recipient sees it — date and amount, nothing internal. */
+interface PublicPayment {
+  date: string;
+  amount: number;
+}
 
 export default function PublicInvoicePortal() {
   const params = useParams();
@@ -14,6 +20,8 @@ export default function PublicInvoicePortal() {
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [client,  setClient]  = useState<Client | null>(null);
   const [items,   setItems]   = useState<InvoiceItem[]>([]);
+  const [payments, setPayments] = useState<PublicPayment[]>([]);
+  const [refunds,  setRefunds]  = useState<PublicPayment[]>([]);
   const [loading, setLoading] = useState(true);
   const [bankDetails, setBankDetails] = useState<any>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -35,6 +43,8 @@ export default function PublicInvoicePortal() {
         setInvoice(data.invoice);
         setClient(data.client);
         setItems(data.items || []);
+        setPayments(data.payments || []);
+        setRefunds(data.refunds || []);
         setBankDetails(data.bank);
       }
       setLoading(false);
@@ -68,14 +78,20 @@ export default function PublicInvoicePortal() {
   // Bank details state loaded from workspace settings
 
   const statusColors: Record<string, { bg: string; color: string; label: string }> = {
-    paid:      { bg: "#E6FAF3", color: "#00965C", label: "✓ Paid" },
-    sent:      { bg: "#EEF4FF", color: "#3B72D4", label: "Awaiting Payment" },
-    overdue:   { bg: "#FEF2F2", color: "#D14F4F", label: "⚠ Overdue" },
-    draft:     { bg: "#F5F5F5", color: "#9CA3AF", label: "Draft" },
-    cancelled: { bg: "#F5F5F5", color: "#9CA3AF", label: "Cancelled" },
+    paid:           { bg: "#E6FAF3", color: "#00965C", label: "✓ Paid" },
+    partially_paid: { bg: "#FFFBEB", color: "#B45309", label: "Partially Paid" },
+    sent:           { bg: "#EEF4FF", color: "#3B72D4", label: "Awaiting Payment" },
+    overdue:        { bg: "#FEF2F2", color: "#D14F4F", label: "⚠ Overdue" },
+    draft:          { bg: "#F5F5F5", color: "#9CA3AF", label: "Draft" },
+    cancelled:      { bg: "#F5F5F5", color: "#9CA3AF", label: "Cancelled" },
   };
   const shownStatus = effectiveInvoiceStatus(invoice);
   const statusInfo = statusColors[shownStatus] ?? statusColors["draft"];
+
+  const paidToDate = amountCollected(invoice);
+  const balance    = balanceDue(invoice);
+  const settled    = invoice.status === "paid" || balance <= 0;
+  const refundedTotal = refunds.reduce((s, r) => s + (r.amount || 0), 0);
 
   return (
     <div className="invoice-portal">
@@ -196,14 +212,52 @@ export default function PublicInvoicePortal() {
                 </div>
               ))}
               <div className="totals-row totals-final">
-                <span>{invoice.status === "paid" ? "Total" : "Total Due"}</span>
+                <span>{settled ? "Total" : "Total Due"}</span>
                 <span>{formatCurrency(invoice.total, currency)}</span>
               </div>
-              {invoice.status === "paid" && invoice.paid_at && (
+
+              {/* Instalments already received, so a part-paid invoice reads as a
+                  statement of account rather than a second demand for the lot. */}
+              {paidToDate > 0 && (!settled || refundedTotal > 0) && (
+                <>
+                  {payments.map((p, idx) => (
+                    <div key={idx} className="totals-row" style={{ color: "#00965C" }}>
+                      <span>Paid {formatDate(p.date)}</span>
+                      <span>−{formatCurrency(p.amount, currency)}</span>
+                    </div>
+                  ))}
+                  {payments.length === 0 && (
+                    <div className="totals-row" style={{ color: "#00965C" }}>
+                      <span>Paid to date</span>
+                      <span>−{formatCurrency(paidToDate, currency)}</span>
+                    </div>
+                  )}
+                  {/* Money handed back, so a voided invoice shows the round trip. */}
+                  {refunds.map((r, idx) => (
+                    <div key={`r${idx}`} className="totals-row" style={{ color: "#D14F4F" }}>
+                      <span>Refunded {formatDate(r.date)}</span>
+                      <span>+{formatCurrency(r.amount, currency)}</span>
+                    </div>
+                  ))}
+                  {refundedTotal === 0 && (
+                    <div className="totals-row totals-balance">
+                      <span>Balance Due</span>
+                      <span>{formatCurrency(balance, currency)}</span>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {refundedTotal > 0 ? (
+                <div style={{ marginTop: 8, padding: "6px 12px", background: "#FEF2F2", borderRadius: 6, display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#D14F4F", fontWeight: 600 }}>
+                  Cancelled · {formatCurrency(refundedTotal, currency)} refunded
+                  {refunds.length > 0 ? ` on ${formatDate(refunds[refunds.length - 1].date)}` : ""}
+                </div>
+              ) : settled && invoice.paid_at ? (
                 <div style={{ marginTop: 8, padding: "6px 12px", background: "#E6FAF3", borderRadius: 6, display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "#00965C", fontWeight: 600 }}>
                   <Check size={12} /> Paid on {formatDate(invoice.paid_at)}
                 </div>
-              )}
+              ) : null}
             </div>
           </div>
 
@@ -215,8 +269,10 @@ export default function PublicInvoicePortal() {
             </div>
           )}
 
-          {/* ─── Payment Instructions (always last, directly above the footer) ─── */}
-          {bankDetails && (() => {
+          {/* ─── Payment Instructions (always last, directly above the footer) ───
+              Hidden on a cancelled invoice: there is nothing left to pay, and
+              inviting payment on a voided document invites a wrong transfer. */}
+          {bankDetails && invoice.status !== "cancelled" && (() => {
             const bankRows = [
               { k: "Account Name",   v: bankDetails.account_name },
               { k: "Account Number", v: bankDetails.account_number, copy: true },
@@ -238,7 +294,10 @@ export default function PublicInvoicePortal() {
                 <div className="payment-card">
                   <div className="payment-card-header">
                     <span className="payment-card-title">Payment Instructions</span>
-                    <span className="payment-card-note">Reference <strong>{invoiceRef}</strong> with your payment</span>
+                    <span className="payment-card-note">
+                      {balance > 0 && paidToDate > 0 && <>Balance of <strong>{formatCurrency(balance, currency)}</strong> · </>}
+                      Reference <strong>{invoiceRef}</strong> with your payment
+                    </span>
                   </div>
                   <div className="payment-methods">
                     {bankRows.length > 0 && (
@@ -379,6 +438,11 @@ export default function PublicInvoicePortal() {
         .totals-final {
           font-size: 15px; font-weight: 800; color: #0D2317;
           padding: 10px 0; border-top: 2px solid #00B872; border-bottom: none; margin-top: 4px;
+        }
+        /* What is actually left to pay — the figure the client acts on. */
+        .totals-balance {
+          font-size: 15px; font-weight: 800; color: #B45309;
+          padding: 10px 0; border-top: 2px solid #FDE68A; border-bottom: none; margin-top: 4px;
         }
 
         .payment-card {

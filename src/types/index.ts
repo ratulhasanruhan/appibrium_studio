@@ -4,7 +4,7 @@ export type ClientStatus = "lead" | "active" | "inactive";
 export type QuoteStatus = "pending" | "converted" | "declined";
 export type ProjectStatus = "planning" | "active" | "completed" | "on_hold" | "cancelled";
 export type ProposalStatus = "draft" | "review" | "sent" | "viewed" | "accepted" | "rejected";
-export type InvoiceStatus = "draft" | "sent" | "paid" | "cancelled" | "overdue";
+export type InvoiceStatus = "draft" | "sent" | "partially_paid" | "paid" | "cancelled" | "overdue";
 export type TransactionType = "income" | "expense" | "advance" | "refund";
 export type TransactionStatus = "pending" | "completed" | "failed";
 export type FileCategory = "contract" | "proposal" | "invoice" | "design" | "assets" | "document" | "source";
@@ -147,6 +147,13 @@ export interface Invoice {
   bank_details?: BankDetails;
   notes?: string;
   sent_at?: string;
+  /**
+   * Collected so far. Every instalment is also written to Transactions, but the
+   * running figure is kept here so any screen holding an invoice knows the
+   * balance without loading the ledger.
+   */
+  amount_paid?: number;
+  /** When the balance reached zero — not when the first instalment arrived. */
   paid_at?: string;
   $createdAt: string;
 }

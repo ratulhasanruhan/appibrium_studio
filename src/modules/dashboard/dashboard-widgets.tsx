@@ -28,7 +28,7 @@ import { getProjects } from "@/services/projects";
 import { getPortalData } from "@/services/portal";
 import { getTransactions } from "@/services/transactions";
 import { getEngagements } from "@/services/engagements";
-import { calcCompanyFinancials } from "@/lib/finance";
+import { calcCompanyFinancials, amountCollected, balanceDue } from "@/lib/finance";
 import { account } from "@/lib/appwrite/client";
 import { hasAdminRole } from "@/utils";
 import type { Invoice, Proposal, Client, Project, Transaction, Engagement } from "@/types";
@@ -135,6 +135,7 @@ function CustomTooltip({ active, payload, label }: any) {
 const activityColors: Record<string, string> = {
   accepted: "#00965C",
   paid:     "#00965C",
+  partial:  "#B45309",
   client:   "#3B72D4",
   sent:     "#B45309",
   overdue:  "#D14F4F",
@@ -160,11 +161,10 @@ function buildMonthBuckets(invoices: Invoice[]) {
     const monthStr = d.toLocaleString("default", { month: "short" });
     const bucket = months.find((m) => m.month === monthStr);
     if (!bucket) continue;
-    if (inv.status === "paid") {
-      bucket.revenue += inv.total || 0;
-    } else if (inv.status === "sent" || inv.status === "overdue") {
-      bucket.pending += inv.total || 0;
-    }
+    // A part-paid invoice contributes to both bars: what came in, and what is
+    // still owed on it.
+    bucket.revenue += amountCollected(inv);
+    bucket.pending += balanceDue(inv);
   }
   return months;
 }
@@ -222,21 +222,22 @@ export function DashboardWidgets() {
   }, []);
 
   // Computed stats
-  const totalRevenue    = invoices.filter((i) => i.status === "paid").reduce((s, i) => s + (i.total || 0), 0);
-  const outstanding     = invoices.filter((i) => i.status === "sent" || i.status === "overdue").reduce((s, i) => s + (i.total || 0), 0);
+  const totalRevenue    = invoices.reduce((s, i) => s + amountCollected(i), 0);
+  const outstanding     = invoices.reduce((s, i) => s + balanceDue(i), 0);
   const pendingProposals = proposals.filter((p) => p.status === "sent" || p.status === "viewed" || p.status === "review").length;
-  const pendingInvoices = invoices.filter((i) => i.status === "sent" || i.status === "overdue").length;
+  const pendingInvoices = invoices.filter((i) => balanceDue(i) > 0).length;
   const chartData       = buildMonthBuckets(invoices);
   const co              = calcCompanyFinancials(invoices, transactions, projects, engagements);
 
   // Top clients by invoice revenue
   const clientRevenueMap = new Map<string, { name: string; revenue: number; invoices: number }>();
   for (const inv of invoices) {
-    if (inv.status !== "paid") continue;
+    const collected = amountCollected(inv);
+    if (collected <= 0) continue;
     const cli = clients.find((c) => c.$id === inv.client_id);
     if (!cli) continue;
     const entry = clientRevenueMap.get(inv.client_id) ?? { name: cli.name, revenue: 0, invoices: 0 };
-    entry.revenue += inv.total || 0;
+    entry.revenue += collected;
     entry.invoices += 1;
     clientRevenueMap.set(inv.client_id, entry);
   }
@@ -261,10 +262,14 @@ export function DashboardWidgets() {
   type ActivityItem = { action: string; entity: string; time: string; type: string };
   const activity: ActivityItem[] = [
     ...invoices.slice(0, 3).map((i) => ({
-      action: i.status === "paid" ? "Invoice paid" : i.status === "overdue" ? "Invoice overdue" : "Invoice sent",
+      action: i.status === "paid" ? "Invoice paid"
+            : i.status === "partially_paid" ? "Part payment received"
+            : i.status === "overdue" ? "Invoice overdue" : "Invoice sent",
       entity: i.title || `INV-${i.$id.slice(-4).toUpperCase()}`,
       time:   i.$createdAt,
-      type:   i.status === "paid" ? "paid" : i.status === "overdue" ? "overdue" : "sent",
+      type:   i.status === "paid" ? "paid"
+            : i.status === "partially_paid" ? "partial"
+            : i.status === "overdue" ? "overdue" : "sent",
     })),
     ...proposals.slice(0, 3).map((p) => ({
       action: p.status === "accepted" ? "Proposal accepted" : p.status === "sent" ? "Proposal sent" : "Proposal created",

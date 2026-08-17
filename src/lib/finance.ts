@@ -43,6 +43,75 @@ function isCollectable(invoice: Invoice): boolean {
   return invoice.status !== "draft" && invoice.status !== "cancelled";
 }
 
+// ── Partial payment ──────────────────────────────────────────────────────── //
+
+/** Currencies here have no sub-unit finer than this; below it, a balance is settled. */
+const SETTLED_WITHIN = 0.01;
+
+/**
+ * What has actually been collected against an invoice.
+ *
+ * Deliberately not gated on `isCollectable`: an invoice cancelled after a
+ * deposit landed still took that money in, and erasing it here would leave the
+ * cash position short of what the bank holds. Handing it back is a movement of
+ * its own — see `refundableAmount` — not an edit to what once arrived. `paid` is
+ * honoured in full so invoices settled before instalments were tracked still
+ * report correctly.
+ */
+export function amountCollected(invoice: Invoice): number {
+  if (invoice.status === "paid") return invoice.total;
+  return Math.min(Math.max(invoice.amount_paid || 0, 0), invoice.total);
+}
+
+/** Still to collect on this invoice. Zero once settled, cancelled, or still a draft. */
+export function balanceDue(invoice: Invoice): number {
+  if (!isCollectable(invoice)) return 0;
+  return Math.max(invoice.total - amountCollected(invoice), 0);
+}
+
+export function isPartiallyPaid(invoice: Invoice): boolean {
+  return isCollectable(invoice) && amountCollected(invoice) > 0 && balanceDue(invoice) > SETTLED_WITHIN;
+}
+
+/** The fields an invoice takes on once a payment of `amount` is recorded against it. */
+export interface PaymentPatch {
+  amount_paid: number;
+  status: Invoice["status"];
+  paid_at?: string;
+}
+
+/**
+ * Books an instalment against an invoice.
+ *
+ * The status follows the money rather than being chosen by hand: anything left
+ * outstanding leaves the invoice partially paid, and the invoice only becomes
+ * "paid" — stamping paid_at — when the balance is cleared.
+ */
+export function applyPayment(invoice: Invoice, amount: number, when: string): PaymentPatch {
+  const collected = Math.min(amountCollected(invoice) + Math.max(amount, 0), invoice.total);
+  const settled = invoice.total - collected <= SETTLED_WITHIN;
+
+  const patch: PaymentPatch = {
+    amount_paid: collected,
+    status: settled ? "paid" : "partially_paid",
+  };
+  if (settled && !invoice.paid_at) patch.paid_at = when;
+  return patch;
+}
+
+/**
+ * What is owed back to the client if this invoice is voided: everything
+ * collected, less any refund already booked against it.
+ *
+ * Cancelling an invoice does not make the money it took disappear — somebody has
+ * to return it, and that return is a refund transaction. Netting the refunds
+ * already recorded keeps a second cancellation from paying the client twice.
+ */
+export function refundableAmount(invoice: Invoice, refunds: Transaction[]): number {
+  const handedBack = sum(refunds.filter(isOutflow), (t) => t.amount);
+  return Math.max(amountCollected(invoice) - handedBack, 0);
+}
+
 function sum<T>(items: T[], pick: (item: T) => number): number {
   return items.reduce((total, item) => total + (pick(item) || 0), 0);
 }
@@ -53,7 +122,7 @@ export interface ProjectFinancials {
   budget: number;
   /** Issued to the client — excludes drafts and cancelled invoices. */
   billed: number;
-  /** Collected against paid invoices. */
+  /** Collected against invoices, instalments included. */
   received: number;
   /** Issued but not yet paid. */
   outstanding: number;
@@ -77,7 +146,7 @@ export function calcProjectFinancials(
   transactions: Transaction[]
 ): ProjectFinancials {
   const billed = sum(invoices.filter(isCollectable), (i) => i.total);
-  const received = sum(invoices.filter((i) => i.status === "paid"), (i) => i.total);
+  const received = sum(invoices, amountCollected);
   const expenses = sum(transactions.filter(isOutflow), (t) => t.amount);
 
   // A payment recorded both as a paid invoice and as an income transaction
@@ -140,7 +209,7 @@ export function calcPersonFinancials(
 // ── Company-wide position ────────────────────────────────────────────────── //
 
 export interface CompanyFinancials {
-  /** Collected against paid invoices. */
+  /** Collected against invoices, instalments included. */
   received: number;
   /** Money in that was not booked through an invoice. */
   otherIncome: number;
@@ -178,7 +247,7 @@ export function calcCompanyFinancials(
   projects: { budget?: number; status?: string }[],
   engagements: Engagement[]
 ): CompanyFinancials {
-  const received = sum(invoices.filter((i) => i.status === "paid"), (i) => i.total);
+  const received = sum(invoices, amountCollected);
   const billed = sum(invoices.filter(isCollectable), (i) => i.total);
 
   const outflows = transactions.filter(isOutflow);
@@ -219,6 +288,10 @@ export function calcCompanyFinancials(
 /**
  * When money from an invoice actually landed. paid_at is the truth once set;
  * older records fall back to the issue date.
+ *
+ * Only meaningful for an invoice settled in one go — an invoice paid by
+ * instalments lands in several months at once, and those dates live on the
+ * payment transactions instead.
  */
 export function invoiceIncomeDate(invoice: Invoice): string {
   return invoice.paid_at || invoice.issue_date || invoice.$createdAt;
@@ -255,8 +328,17 @@ export function monthlySeries(
     });
   }
 
+  // Every instalment is booked as a transaction on the day it arrived, so those
+  // carry invoice income into the right month — a deposit in June and the
+  // balance in August must not both land on the invoice's paid_at date.
+  const bookedThroughLedger = new Set(
+    transactions.filter((t) => t.invoice_id && !isOutflow(t)).map((t) => t.invoice_id)
+  );
+
   for (const inv of invoices) {
-    if (inv.status !== "paid") continue;
+    // Invoices settled before payments were tracked have no ledger row of their
+    // own; without this they would disappear from the series entirely.
+    if (inv.status !== "paid" || bookedThroughLedger.has(inv.$id)) continue;
     const b = buckets.get(monthKey(new Date(invoiceIncomeDate(inv))));
     if (b) b.income += inv.total || 0;
   }
@@ -264,7 +346,7 @@ export function monthlySeries(
     const b = buckets.get(monthKey(new Date(t.transaction_date || t.$createdAt)));
     if (!b) continue;
     if (isOutflow(t)) b.expenses += t.amount || 0;
-    else if (!t.invoice_id) b.income += t.amount || 0; // invoice income already counted
+    else b.income += t.amount || 0;
   }
 
   const out = Array.from(buckets.values());
@@ -308,7 +390,7 @@ export function clientFinancials(
       const own = invoices.filter((i) => i.client_id === c.$id);
       const proj = projects.filter((p) => p.client_id === c.$id && p.status !== "cancelled");
       const invoiced = sum(own.filter(isCollectable), (i) => i.total);
-      const received = sum(own.filter((i) => i.status === "paid"), (i) => i.total);
+      const received = sum(own, amountCollected);
       const agreed = sum(proj, (p) => p.budget || 0);
       return {
         clientId: c.$id,

@@ -167,17 +167,25 @@ export async function sendInvoiceSMS(
  * Confirm to a client that their payment landed.
  *
  * Deliberately short: the receipt itself goes by email, and this only has to
- * reassure them the money arrived and nothing else is owed on this invoice.
+ * reassure them the money arrived. When an instalment leaves a balance, that
+ * figure is the one thing worth carrying in the text — telling a half-paid
+ * client their invoice is "settled" is worse than sending nothing.
  */
 export async function sendPaymentReceivedSMS(
   phone: string,
   clientName: string,
   amount: string,
-  reference: string
+  reference: string,
+  /** Formatted balance still outstanding. Omit when the invoice is settled. */
+  balance?: string
 ): Promise<SMSResult> {
+  const outcome = balance
+    ? `Balance remaining: ${balance}. An updated invoice has been emailed to you. `
+    : `Your invoice is now settled and a receipt has been emailed to you. `;
+
   const message =
     `Dear ${clientName}, we have received your payment of ${amount}. ` +
-    `Your invoice is now settled and a receipt has been emailed to you. ` +
+    outcome +
     `Ref: ${reference}. Thank you — Appibrium.`;
 
   return sendSMS({ to: phone, message, entity: { type: "invoice_payment", id: reference } });

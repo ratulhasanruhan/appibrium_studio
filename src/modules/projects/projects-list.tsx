@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Search, FolderKanban, ExternalLink, Plus, Loader2, X, AlertCircle, Check, Trash2, Edit2 } from "lucide-react";
 import type { Project, Client, Invoice } from "@/types";
 import { formatDate, formatCurrency, hasAdminRole } from "@/utils";
+import { amountCollected } from "@/lib/finance";
 import { getProjects, createProject, updateProject, deleteProject } from "@/services/projects";
 import { getClients } from "@/services/crm";
 import { getPortalData } from "@/services/portal";
@@ -107,7 +108,7 @@ export function ProjectsList() {
         const projInvs = invoiceGroup.get(p.$id) || [];
         let paid = 0;
         projInvs.forEach((inv) => {
-          if (inv.status === "paid") paid += inv.total;
+          paid += amountCollected(inv);
         });
         // Due = remaining budget still to be collected, not just unpaid invoices.
         const due = Math.max((p.budget || 0) - paid, 0);

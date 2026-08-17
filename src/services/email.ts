@@ -134,23 +134,38 @@ export async function sendInvoiceNotification(clientEmail: string, clientName: s
   return sendEmail({ to: clientEmail, subject, html, attachments });
 }
 
+export interface PaymentReceiptDetails {
+  clientEmail: string;
+  clientName: string;
+  invoiceTitle: string;
+  /** The instalment just received, already formatted. */
+  amount: string;
+  paidOn: string;
+  token: string;
+  reference: string;
+  /** Formatted balance still outstanding. Omitted or empty means the invoice is settled. */
+  balance?: string;
+  /** Shown alongside the balance, so a part payment says when the rest is expected. */
+  dueDate?: string;
+}
+
 /**
- * Confirms a payment has been received and closes the invoice out.
+ * Confirms money has been received against an invoice.
  *
- * Sent the moment an invoice is marked paid. The attached PDF is the settled
- * copy — it carries the "Paid on" stamp — so this doubles as the client's
- * receipt and there is nothing further for them to act on.
+ * Covers both cases: an invoice settled outright, and an instalment that leaves
+ * a balance. A part payment has to say what is still owed and when — a receipt
+ * that reads "settled" against a half-paid invoice invites the client to stop
+ * there. The attached PDF is the live invoice, which carries the same figures.
  */
-export async function sendPaymentReceiptNotification(
-  clientEmail: string,
-  clientName: string,
-  invoiceTitle: string,
-  total: string,
-  paidOn: string,
-  token: string,
-  reference: string
-) {
-  const subject = `Payment Received: ${invoiceTitle}`;
+export async function sendPaymentReceiptNotification(details: PaymentReceiptDetails) {
+  const {
+    clientEmail, clientName, invoiceTitle, amount, paidOn, token, reference, balance, dueDate,
+  } = details;
+
+  const settled = !balance;
+  const subject = settled
+    ? `Payment Received: ${invoiceTitle}`
+    : `Part Payment Received: ${invoiceTitle}`;
   const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").trim();
   const portalUrl = `${appUrl}/public/invoice/${token}`;
 
@@ -159,19 +174,34 @@ export async function sendPaymentReceiptNotification(
     ? [{ filename: `${invoiceTitle.replace(/[^a-zA-Z0-9]/g, "_")}_receipt.pdf`, content: receiptPdf }]
     : undefined;
 
+  const intro = settled
+    ? "We have received your payment and this invoice is now settled. A receipt is attached for your records — no further action is needed."
+    : "We have received your payment — thank you. A part of this invoice remains outstanding; the updated invoice is attached, and the balance is shown below.";
+
+  const balanceBlock = settled
+    ? ""
+    : `
+      <div style="background: #fffbeb; padding: 16px; border-radius: 6px; margin: 20px 0; border: 1px solid #fde68a;">
+        <p style="margin: 0; font-size: 12px; font-weight: 700; color: #b45309; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Balance remaining</p>
+        <p style="margin: 4px 0; color: #b45309; font-size: 20px; font-weight: 700;">${balance}</p>
+        ${dueDate ? `<p style="margin: 8px 0 0 0; color: #334155; font-size: 13px;">Due by: <strong>${dueDate}</strong></p>` : ""}
+      </div>
+    `;
+
   const html = `
     <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
       <h2 style="color: #0d2317; font-family: sans-serif; font-size: 18px; margin-bottom: 12px;">Thank you, ${clientName}.</h2>
-      <p style="font-size: 14px; color: #334155; line-height: 1.5; margin-bottom: 20px;">We have received your payment and this invoice is now settled. A receipt is attached for your records — no further action is needed.</p>
+      <p style="font-size: 14px; color: #334155; line-height: 1.5; margin-bottom: 20px;">${intro}</p>
       <div style="background: #f4fbf7; padding: 16px; border-radius: 6px; margin: 20px 0; border: 1px solid #d6ede1;">
         <p style="margin: 0; font-size: 12px; font-weight: 700; color: #6b8f7c; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Payment received</p>
-        <p style="margin: 4px 0; color: #00b872; font-size: 20px; font-weight: 700;">${total}</p>
+        <p style="margin: 4px 0; color: #00b872; font-size: 20px; font-weight: 700;">${amount}</p>
         <p style="margin: 8px 0 0 0; color: #334155; font-size: 13px;">For: <strong>${invoiceTitle}</strong></p>
         <p style="margin: 4px 0 0 0; color: #334155; font-size: 13px;">Date: <strong>${paidOn}</strong></p>
         <p style="margin: 4px 0 0 0; color: #334155; font-size: 13px;">Reference: <strong>${reference}</strong></p>
       </div>
+      ${balanceBlock}
       <p style="margin: 24px 0;">
-        <a href="${portalUrl}" target="_blank" style="background: #00b872; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block; font-size: 13px;">View Receipt Online</a>
+        <a href="${portalUrl}" target="_blank" style="background: #00b872; color: #ffffff; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block; font-size: 13px;">${settled ? "View Receipt Online" : "View Invoice Online"}</a>
       </p>
       <p style="font-size: 14px; color: #334155; line-height: 1.5;">If anything on this receipt looks incorrect, reply to this email and we will review it right away.</p>
       <p style="margin-top: 30px; font-size: 12px; color: #6b8f7c; border-top: 1px solid #f1f5f9; padding-top: 14px;">With thanks,<br><strong>Appibrium Technology Co.</strong></p>

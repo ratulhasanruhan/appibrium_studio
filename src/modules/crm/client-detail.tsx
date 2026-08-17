@@ -27,6 +27,8 @@ import { getProposals } from "@/services/proposals";
 import { getInvoices } from "@/services/invoices";
 import type { Client, Contact, Note, Project, Proposal, Invoice } from "@/types";
 import { formatDate, formatCurrency, initials } from "@/utils";
+import { INVOICE_STATUS_BADGE, invoiceStatusLabel } from "@/lib/status";
+import { balanceDue, isPartiallyPaid } from "@/lib/finance";
 import { EditClientModal } from "@/components/edit-client-modal";
 
 interface ClientDetailProps {
@@ -398,9 +400,12 @@ export function ClientDetail({ id }: ClientDetailProps) {
                       </td>
                       <td>
                         <strong style={{ fontFamily: "var(--font-heading)" }}>{formatCurrency(inv.total, inv.currency)}</strong>
+                        {isPartiallyPaid(inv) && (
+                          <p style={{ fontSize: 11, color: "#B45309" }}>{formatCurrency(balanceDue(inv), inv.currency)} still due</p>
+                        )}
                       </td>
                       <td>
-                        <span className={`badge badge-${inv.status}`}>{inv.status}</span>
+                        <span className={`badge ${INVOICE_STATUS_BADGE[inv.status] || "badge-draft"}`} style={{ textTransform: "capitalize" }}>{invoiceStatusLabel(inv.status)}</span>
                       </td>
                       <td>{formatDate(inv.issue_date)}</td>
                       <td>{formatDate(inv.due_date)}</td>

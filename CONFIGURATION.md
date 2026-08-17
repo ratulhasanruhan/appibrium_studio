@@ -66,6 +66,11 @@ This script will automatically check, create, and build:
 *   All 12 dynamic collections with their correctly typed attributes (strings, numbers, booleans, floats)
 *   The storage bucket `studio_files` for documents
 
+It is safe to re-run at any time: existing collections, attributes, and indexes are
+left alone and only missing ones are added. Run it again after pulling changes that
+introduce a new field — for example `invoices.amount_paid`, which records how much of
+an invoice has been collected when clients pay in instalments.
+
 ---
 
 ## 3. Resend Email Integration

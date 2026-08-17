@@ -4,7 +4,8 @@ import { useState, useEffect } from "react";
 import { Search, Receipt, ExternalLink, MessageSquare, Loader2, Trash2 } from "lucide-react";
 import type { Invoice, Client } from "@/types";
 import { formatDate, formatCurrency, documentRef, hasAdminRole } from "@/utils";
-import { effectiveInvoiceStatus, isOverdue } from "@/lib/finance";
+import { amountCollected, balanceDue, isPartiallyPaid } from "@/lib/finance";
+import { INVOICE_STATUS_BADGE, invoiceStatusLabel } from "@/lib/status";
 import Link from "next/link";
 import { getInvoices, deleteInvoice } from "@/services/invoices";
 import { getClients } from "@/services/crm";
@@ -14,16 +15,13 @@ import { account, databases, DB_ID, COLLECTIONS, Query } from "@/lib/appwrite/cl
 
 type InvoiceWithClient = Invoice & { client_name: string; client_phone?: string };
 
-const STATUS_BADGE: Record<string, string> = {
-  draft:     "badge-draft",
-  sent:      "badge-sent",
-  paid:      "badge-paid",
-  overdue:   "badge-overdue",
-  cancelled: "badge-cancelled",
-};
-
 type StatusFilter = "all" | Invoice["status"];
-const FILTERS: StatusFilter[] = ["all", "draft", "sent", "paid", "overdue", "cancelled"];
+const FILTERS: StatusFilter[] = ["all", "draft", "sent", "partially_paid", "paid", "overdue", "cancelled"];
+
+const FILTER_LABEL: Record<StatusFilter, string> = {
+  all: "All", draft: "Draft", sent: "Sent", partially_paid: "Part paid",
+  paid: "Paid", overdue: "Overdue", cancelled: "Cancelled",
+};
 
 export function InvoiceList() {
   const [invoices, setInvoices] = useState<InvoiceWithClient[]>([]);
@@ -111,9 +109,10 @@ export function InvoiceList() {
   });
 
   const totalInvoiced   = invoices.reduce((s, i) => s + i.total, 0);
-  const totalOutstanding = invoices.filter((i) => i.status === "sent" || i.status === "overdue").reduce((s, i) => s + i.total, 0);
-  const overdueCount = invoices.filter((i) => isOverdue(i)).length;
-  const totalPaid       = invoices.filter((i) => i.status === "paid").reduce((s, i) => s + i.total, 0);
+  // Outstanding is what is still to arrive, not the face value of unpaid
+  // invoices — an invoice half settled owes half, and says so here.
+  const totalOutstanding = invoices.reduce((s, i) => s + balanceDue(i), 0);
+  const totalPaid       = invoices.reduce((s, i) => s + amountCollected(i), 0);
   const totalDraft      = invoices.filter((i) => i.status === "draft").reduce((s, i) => s + i.total, 0);
 
   return (
@@ -154,9 +153,9 @@ export function InvoiceList() {
                 background: filter === s ? "var(--accent-subtle)" : "var(--background-alt)",
                 color: filter === s ? "var(--accent)" : "var(--foreground-muted)",
                 border: `1px solid ${filter === s ? "rgba(0,184,114,0.25)" : "var(--border)"}`,
-                transition: "all 0.1s", textTransform: "capitalize", boxShadow: "var(--shadow-xs)",
+                transition: "all 0.1s", boxShadow: "var(--shadow-xs)",
               }}
-            >{s}</button>
+            >{FILTER_LABEL[s]}</button>
           ))}
         </div>
         <span style={{ marginLeft: "auto", fontSize: 12, color: "var(--foreground-muted)" }}>
@@ -221,9 +220,14 @@ export function InvoiceList() {
                       <span style={{ fontFamily: "var(--font-heading)", fontWeight: 700, fontSize: 13, color: "var(--foreground)" }}>
                         {formatCurrency(inv.total, inv.currency)}
                       </span>
+                      {isPartiallyPaid(inv) && (
+                        <p style={{ fontSize: 11, color: "#B45309" }}>
+                          {formatCurrency(balanceDue(inv), inv.currency)} still due
+                        </p>
+                      )}
                     </td>
                     <td>
-                      <span className={`badge ${STATUS_BADGE[inv.status] || "badge-draft"}`} style={{ textTransform: "capitalize" }}>{inv.status}</span>
+                      <span className={`badge ${INVOICE_STATUS_BADGE[inv.status] || "badge-draft"}`} style={{ textTransform: "capitalize" }}>{invoiceStatusLabel(inv.status)}</span>
                     </td>
                     <td>
                       <span style={{ fontSize: 12, color: inv.status === "overdue" ? "#D14F4F" : "var(--foreground-muted)", fontWeight: inv.status === "overdue" ? 600 : 400 }}>
